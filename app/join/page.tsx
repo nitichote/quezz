@@ -5,6 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Check, LogIn, Timer, Trophy } from "lucide-react";
 import { SetupWarning } from "@/components/SetupWarning";
+import { getErrorMessage } from "@/lib/errors";
 import { playSound } from "@/lib/sound";
 import { hasSupabaseConfig, requireSupabase } from "@/lib/supabase";
 import { Answer, GameSession, Player, Quiz } from "@/lib/types";
@@ -174,7 +175,7 @@ function JoinExperience() {
       setPlayer(playerData);
       await refreshAnswers(playerData.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not join room.");
+      setError(getErrorMessage(err, "Could not join room."));
     } finally {
       setBusy(false);
     }
@@ -203,7 +204,7 @@ function JoinExperience() {
       if (answerError) throw answerError;
       setAnswers((items) => [...items.filter((answer) => answer.id !== data.id && answer.question_index !== session.current_question), data as Answer]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not submit answer.");
+      setError(getErrorMessage(err, "Could not submit answer."));
     } finally {
       setBusy(false);
     }

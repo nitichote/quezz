@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, Copy, Eye, Plus, Radio, RotateCcw, Timer, Trash2, Volume2, VolumeX } from "lucide-react";
 import { SetupWarning } from "@/components/SetupWarning";
+import { getErrorMessage } from "@/lib/errors";
 import { emptyQuestion, makeRoomCode, starterQuestions } from "@/lib/quiz";
 import { playSound, startFunnyLoop } from "@/lib/sound";
 import { hasSupabaseConfig, requireSupabase } from "@/lib/supabase";
@@ -203,7 +204,7 @@ export default function HostPage() {
       setQuestions((quizData as Quiz).questions);
       setSession(sessionData as GameSession);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create session.");
+      setError(getErrorMessage(err, "Could not create session."));
     } finally {
       setBusy(false);
     }
@@ -229,7 +230,7 @@ export default function HostPage() {
       if (sessionError) throw sessionError;
       setSession(data as GameSession);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update session.");
+      setError(getErrorMessage(err, "Could not update session."));
     } finally {
       setBusy(false);
     }
