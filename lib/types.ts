@@ -21,6 +21,9 @@ export type GameSession = {
   room_code: string;
   status: "lobby" | "question" | "results" | "ended";
   current_question: number;
+  question_started_at?: string | null;
+  question_duration: number;
+  results_duration: number;
   created_at?: string;
 };
 

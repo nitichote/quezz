@@ -13,8 +13,15 @@ create table if not exists public.game_sessions (
   room_code text not null unique,
   status text not null default 'lobby' check (status in ('lobby', 'question', 'results', 'ended')),
   current_question integer not null default 0 check (current_question >= 0),
+  question_started_at timestamptz,
+  question_duration integer not null default 20 check (question_duration > 0),
+  results_duration integer not null default 5 check (results_duration > 0),
   created_at timestamptz not null default now()
 );
+
+alter table public.game_sessions add column if not exists question_started_at timestamptz;
+alter table public.game_sessions add column if not exists question_duration integer not null default 20 check (question_duration > 0);
+alter table public.game_sessions add column if not exists results_duration integer not null default 5 check (results_duration > 0);
 
 create table if not exists public.players (
   id uuid primary key default gen_random_uuid(),
@@ -63,6 +70,23 @@ create policy "demo read answers" on public.answers for select using (true);
 create policy "demo insert answers" on public.answers for insert with check (true);
 create policy "demo update answers" on public.answers for update using (true) with check (true);
 
-alter publication supabase_realtime add table public.game_sessions;
-alter publication supabase_realtime add table public.players;
-alter publication supabase_realtime add table public.answers;
+do $$
+begin
+  alter publication supabase_realtime add table public.game_sessions;
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.players;
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.answers;
+exception
+  when duplicate_object then null;
+end $$;

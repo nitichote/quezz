@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, Copy, Eye, Plus, Radio, RotateCcw, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Check, Copy, Eye, Plus, Radio, RotateCcw, Timer, Trash2, Volume2, VolumeX } from "lucide-react";
 import { SetupWarning } from "@/components/SetupWarning";
 import { emptyQuestion, makeRoomCode, starterQuestions } from "@/lib/quiz";
+import { playSound, startFunnyLoop } from "@/lib/sound";
 import { hasSupabaseConfig, requireSupabase } from "@/lib/supabase";
 import { Answer, GameSession, Player, Question, Quiz } from "@/lib/types";
 
@@ -19,6 +20,13 @@ export default function HostPage() {
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [timerSeconds, setTimerSeconds] = useState(20);
+  const [resultsSeconds, setResultsSeconds] = useState(5);
+  const [timeLeft, setTimeLeft] = useState(20);
+  const [autoNext, setAutoNext] = useState(true);
+  const [musicOn, setMusicOn] = useState(false);
+  const stopMusicRef = useRef<null | (() => void)>(null);
+  const autoActionRef = useRef("");
 
   const currentQuestion = session ? questions[session.current_question] : null;
   const currentAnswers = useMemo(
@@ -32,6 +40,8 @@ export default function HostPage() {
   const correctCount = currentQuestion
     ? currentAnswers.filter((answer) => answer.choice_index === currentQuestion.correctIndex).length
     : 0;
+  const timerProgress =
+    session?.status === "question" ? Math.max(0, Math.min(100, (timeLeft / Math.max(1, session.question_duration)) * 100)) : 0;
 
   useEffect(() => {
     if (!session || !hasSupabaseConfig) {
@@ -64,6 +74,58 @@ export default function HostPage() {
       void supabase.removeChannel(channel);
     };
   }, [session?.id]);
+
+  useEffect(() => {
+    return () => {
+      stopMusicRef.current?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session || session.status !== "question" || !session.question_started_at) {
+      autoActionRef.current = "";
+      setTimeLeft(session?.question_duration ?? timerSeconds);
+      return;
+    }
+
+    const updateRemaining = () => {
+      const startedAt = new Date(session.question_started_at ?? Date.now()).getTime();
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      const nextTimeLeft = Math.max(0, session.question_duration - elapsed);
+      setTimeLeft(nextTimeLeft);
+
+      if (nextTimeLeft <= 3 && nextTimeLeft > 0) {
+        void playSound("tick");
+      }
+
+      const actionKey = `${session.id}-${session.current_question}-${session.question_started_at}`;
+      if (autoNext && nextTimeLeft <= 0 && autoActionRef.current !== actionKey) {
+        autoActionRef.current = actionKey;
+        void playSound("results");
+        void setStatus("results", session.current_question);
+        window.setTimeout(() => {
+          if (session.current_question >= questions.length - 1) {
+            void setStatus("ended", session.current_question);
+          } else {
+            void askQuestion(session.current_question + 1);
+          }
+        }, session.results_duration * 1000);
+      }
+    };
+
+    updateRemaining();
+    const intervalId = window.setInterval(updateRemaining, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [
+    autoNext,
+    questions.length,
+    session?.id,
+    session?.status,
+    session?.current_question,
+    session?.question_started_at,
+    session?.question_duration,
+    session?.results_duration,
+  ]);
 
   async function refreshPlayers(sessionId: string) {
     const supabase = requireSupabase();
@@ -129,6 +191,8 @@ export default function HostPage() {
           room_code: makeRoomCode(),
           status: "lobby",
           current_question: 0,
+          question_duration: timerSeconds,
+          results_duration: resultsSeconds,
         })
         .select()
         .single();
@@ -152,7 +216,13 @@ export default function HostPage() {
       const supabase = requireSupabase();
       const { data, error: sessionError } = await supabase
         .from("game_sessions")
-        .update({ status, current_question: currentQuestion })
+        .update({
+          status,
+          current_question: currentQuestion,
+          question_started_at: status === "question" ? new Date().toISOString() : session.question_started_at,
+          question_duration: timerSeconds,
+          results_duration: resultsSeconds,
+        })
         .eq("id", session.id)
         .select()
         .single();
@@ -168,6 +238,23 @@ export default function HostPage() {
   async function copyJoinLink() {
     if (!session) return;
     await navigator.clipboard.writeText(`${window.location.origin}/join?code=${session.room_code}`);
+  }
+
+  async function askQuestion(questionIndex = session?.current_question ?? 0) {
+    await playSound("question");
+    await setStatus("question", questionIndex);
+  }
+
+  async function toggleMusic() {
+    if (musicOn) {
+      stopMusicRef.current?.();
+      stopMusicRef.current = null;
+      setMusicOn(false);
+      return;
+    }
+
+    stopMusicRef.current = await startFunnyLoop();
+    setMusicOn(true);
   }
 
   return (
@@ -212,6 +299,39 @@ export default function HostPage() {
                 <Radio size={19} />
                 Create live room
               </button>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <label className="text-sm font-black">
+                  Seconds/question
+                  <input
+                    type="number"
+                    min={5}
+                    max={120}
+                    value={timerSeconds}
+                    onChange={(event) => setTimerSeconds(Number(event.target.value))}
+                    className="mt-2 h-11 w-full rounded-md border-2 border-ink/15 px-3 outline-none focus:border-ink"
+                  />
+                </label>
+                <label className="text-sm font-black">
+                  Results seconds
+                  <input
+                    type="number"
+                    min={3}
+                    max={30}
+                    value={resultsSeconds}
+                    onChange={(event) => setResultsSeconds(Number(event.target.value))}
+                    className="mt-2 h-11 w-full rounded-md border-2 border-ink/15 px-3 outline-none focus:border-ink"
+                  />
+                </label>
+              </div>
+              <label className="mt-4 flex items-center gap-3 font-black">
+                <input
+                  type="checkbox"
+                  checked={autoNext}
+                  onChange={(event) => setAutoNext(event.target.checked)}
+                  className="h-5 w-5 accent-ink"
+                />
+                Auto next question
+              </label>
             </div>
 
             <div className="grid gap-4">
@@ -270,7 +390,7 @@ export default function HostPage() {
                   Copy link
                 </button>
                 <button
-                  onClick={() => setStatus("question")}
+                  onClick={() => askQuestion()}
                   disabled={busy || session.status === "question"}
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-mint font-black text-ink"
                 >
@@ -293,6 +413,34 @@ export default function HostPage() {
                   <RotateCcw size={18} />
                   Lobby
                 </button>
+                <button
+                  onClick={toggleMusic}
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-md border-2 border-ink font-black"
+                >
+                  {musicOn ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                  Music
+                </button>
+              </div>
+              <div className="mt-4 rounded-md border-2 border-ink/10 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 font-black">
+                    <Timer size={18} />
+                    Timer
+                  </div>
+                  <span className="text-3xl font-black">{session.status === "question" ? timeLeft : session.question_duration}s</span>
+                </div>
+                <div className="mt-3 h-3 overflow-hidden rounded-full bg-ink/10">
+                  <div className="h-full bg-coral transition-all" style={{ width: `${timerProgress}%` }} />
+                </div>
+                <label className="mt-4 flex items-center gap-3 text-sm font-black">
+                  <input
+                    type="checkbox"
+                    checked={autoNext}
+                    onChange={(event) => setAutoNext(event.target.checked)}
+                    className="h-5 w-5 accent-ink"
+                  />
+                  Auto show results and continue
+                </label>
               </div>
               <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-md bg-ink p-3 text-white">
@@ -331,14 +479,14 @@ export default function HostPage() {
                 <div className="flex gap-2">
                   <button
                     disabled={busy || session.current_question === 0}
-                    onClick={() => setStatus("question", session.current_question - 1)}
+                    onClick={() => askQuestion(session.current_question - 1)}
                     className="h-11 rounded-md border-2 border-ink px-4 font-black"
                   >
                     Prev
                   </button>
                   <button
                     disabled={busy || session.current_question >= questions.length - 1}
-                    onClick={() => setStatus("question", session.current_question + 1)}
+                    onClick={() => askQuestion(session.current_question + 1)}
                     className="h-11 rounded-md bg-ink px-4 font-black text-white"
                   >
                     Next

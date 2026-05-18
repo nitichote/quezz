@@ -38,5 +38,6 @@ Import this project into Vercel, add the same two environment variables in Proje
 - Host opens `/host`, creates a quiz, and shares the room code or join link.
 - Students open `/join`, enter their name and room code, and answer from their devices.
 - Host uses Ask, Results, Next, and End quiz controls.
+- Host can set seconds per question, auto-advance to results, auto-start the next question, and toggle simple quiz music.
 
 The current SQL policies are intentionally open for a demo/seminar MVP. Before using this for public production, tighten RLS and add host authentication.

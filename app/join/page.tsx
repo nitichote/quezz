@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Check, LogIn, Trophy } from "lucide-react";
+import { ArrowLeft, Check, LogIn, Timer, Trophy } from "lucide-react";
 import { SetupWarning } from "@/components/SetupWarning";
+import { playSound } from "@/lib/sound";
 import { hasSupabaseConfig, requireSupabase } from "@/lib/supabase";
 import { Answer, GameSession, Player, Quiz } from "@/lib/types";
 
@@ -38,6 +39,8 @@ function JoinExperience() {
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [timeLeft, setTimeLeft] = useState(20);
+  const lastSoundKeyRef = useRef("");
 
   const currentQuestion = session && quiz ? quiz.questions[session.current_question] : null;
   const currentAnswer = useMemo(
@@ -48,6 +51,8 @@ function JoinExperience() {
     if (!quiz) return 0;
     return answers.filter((answer) => quiz.questions[answer.question_index]?.correctIndex === answer.choice_index).length;
   }, [answers, quiz]);
+  const timerProgress =
+    session?.status === "question" ? Math.max(0, Math.min(100, (timeLeft / Math.max(1, session.question_duration)) * 100)) : 0;
 
   useEffect(() => {
     const savedName = window.localStorage.getItem("quezz-player-name");
@@ -80,6 +85,35 @@ function JoinExperience() {
       void supabase.removeChannel(channel);
     };
   }, [session?.id, player?.id]);
+
+  useEffect(() => {
+    if (!session) return;
+
+    const soundKey = `${session.status}-${session.current_question}-${session.question_started_at ?? ""}`;
+    if (lastSoundKeyRef.current !== soundKey) {
+      lastSoundKeyRef.current = soundKey;
+      if (session.status === "question") void playSound("question");
+      if (session.status === "results") void playSound("results");
+      if (session.status === "ended") void playSound("end");
+    }
+  }, [session?.status, session?.current_question, session?.question_started_at]);
+
+  useEffect(() => {
+    if (!session || session.status !== "question" || !session.question_started_at) {
+      setTimeLeft(session?.question_duration ?? 20);
+      return;
+    }
+
+    const updateRemaining = () => {
+      const startedAt = new Date(session.question_started_at ?? Date.now()).getTime();
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      setTimeLeft(Math.max(0, session.question_duration - elapsed));
+    };
+
+    updateRemaining();
+    const intervalId = window.setInterval(updateRemaining, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [session?.status, session?.question_started_at, session?.question_duration]);
 
   async function refreshAnswers(playerId: string) {
     const supabase = requireSupabase();
@@ -152,6 +186,7 @@ function JoinExperience() {
     setError("");
     try {
       const supabase = requireSupabase();
+      void playSound("answer");
       const { data, error: answerError } = await supabase
         .from("answers")
         .upsert(
@@ -251,9 +286,20 @@ function JoinExperience() {
 
             {currentQuestion && (session.status === "question" || session.status === "results") ? (
               <div className="mt-7">
-                <p className="text-sm font-bold text-ink/50">
-                  Question {session.current_question + 1} of {quiz.questions.length}
-                </p>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm font-bold text-ink/50">
+                    Question {session.current_question + 1} of {quiz.questions.length}
+                  </p>
+                  <div className="flex min-w-32 items-center gap-2 rounded-md bg-ink px-3 py-2 font-black text-white">
+                    <Timer size={18} />
+                    {session.status === "question" ? `${timeLeft}s` : "Results"}
+                  </div>
+                </div>
+                {session.status === "question" ? (
+                  <div className="mt-3 h-3 overflow-hidden rounded-full bg-ink/10">
+                    <div className="h-full bg-coral transition-all" style={{ width: `${timerProgress}%` }} />
+                  </div>
+                ) : null}
                 <h2 className="mt-2 text-3xl font-black">{currentQuestion.prompt}</h2>
                 <div className="mt-6 grid gap-3">
                   {currentQuestion.choices.map((choice, index) => {
