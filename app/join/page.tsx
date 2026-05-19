@@ -12,6 +12,7 @@ import { hasSupabaseConfig, requireSupabase } from "@/lib/supabase";
 import { Answer, GameSession, Player, Quiz } from "@/lib/types";
 
 const swatches = ["bg-coral", "bg-sky", "bg-gold", "bg-mint"];
+const answerSymbols = ["▲", "◆", "●", "■"];
 
 export default function JoinPage() {
   return (
@@ -46,6 +47,7 @@ function JoinExperience() {
   const countdownSoundRef = useRef("");
 
   const currentQuestion = session && quiz ? quiz.questions[session.current_question] : null;
+  const displayMode = quiz?.displayMode ?? "full";
   const currentAnswer = useMemo(
     () => answers.find((answer) => session && answer.question_index === session.current_question),
     [answers, session],
@@ -347,11 +349,13 @@ function JoinExperience() {
                         key={index}
                         onClick={() => submitAnswer(index)}
                         disabled={busy || session.status === "results"}
-                        className={`${swatches[index]} flex min-h-16 items-center justify-between rounded-md px-4 py-3 text-left text-lg font-black text-white transition hover:-translate-y-0.5 ${
+                        className={`${swatches[index]} flex ${
+                          displayMode === "classic" ? "min-h-32 justify-center text-6xl sm:min-h-40" : "min-h-16 justify-between text-lg"
+                        } items-center rounded-md px-4 py-3 text-left font-black text-white transition hover:-translate-y-0.5 ${
                           isSelected ? "ring-4 ring-ink" : ""
                         }`}
                       >
-                        <span>{choice.text}</span>
+                        <span>{displayMode === "classic" ? answerSymbols[index] : choice.text}</span>
                         {session.status === "results" && isCorrect ? <Check size={22} /> : null}
                       </button>
                     );

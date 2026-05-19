@@ -9,10 +9,13 @@ export type Question = {
   imageUrl?: string;
 };
 
+export type QuizDisplayMode = "full" | "classic";
+
 export type Quiz = {
   id: string;
   title: string;
   questions: Question[];
+  displayMode?: QuizDisplayMode;
   created_at?: string;
 };
 
@@ -51,4 +54,10 @@ export type UserProfile = {
   email: string;
   role: UserRole;
   created_at?: string;
+};
+
+export type AppSettings = {
+  id: boolean;
+  prevent_parallel_rooms: boolean;
+  updated_at?: string;
 };

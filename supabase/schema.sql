@@ -7,12 +7,25 @@ create table if not exists public.user_profiles (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.app_settings (
+  id boolean primary key default true check (id),
+  prevent_parallel_rooms boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.app_settings (id, prevent_parallel_rooms)
+values (true, true)
+on conflict (id) do nothing;
+
 create table if not exists public.quizzes (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   questions jsonb not null,
+  "displayMode" text not null default 'full' check ("displayMode" in ('full', 'classic')),
   created_at timestamptz not null default now()
 );
+
+alter table public.quizzes add column if not exists "displayMode" text not null default 'full' check ("displayMode" in ('full', 'classic'));
 
 create table if not exists public.game_sessions (
   id uuid primary key default gen_random_uuid(),
@@ -52,6 +65,7 @@ alter table public.game_sessions enable row level security;
 alter table public.players enable row level security;
 alter table public.answers enable row level security;
 alter table public.user_profiles enable row level security;
+alter table public.app_settings enable row level security;
 
 create or replace function public.is_admin()
 returns boolean
@@ -108,6 +122,9 @@ drop policy if exists "demo insert answers" on public.answers;
 drop policy if exists "demo update answers" on public.answers;
 drop policy if exists "profiles read own or admin" on public.user_profiles;
 drop policy if exists "profiles admin update" on public.user_profiles;
+drop policy if exists "settings host read" on public.app_settings;
+drop policy if exists "settings admin insert" on public.app_settings;
+drop policy if exists "settings admin update" on public.app_settings;
 
 create policy "demo read quizzes" on public.quizzes for select using (true);
 create policy "demo insert quizzes" on public.quizzes for insert with check (public.is_host_manager());
@@ -129,6 +146,19 @@ using (id = auth.uid() or public.is_admin());
 
 create policy "profiles admin update"
 on public.user_profiles for update
+using (public.is_admin())
+with check (public.is_admin());
+
+create policy "settings host read"
+on public.app_settings for select
+using (public.is_host_manager());
+
+create policy "settings admin insert"
+on public.app_settings for insert
+with check (public.is_admin());
+
+create policy "settings admin update"
+on public.app_settings for update
 using (public.is_admin())
 with check (public.is_admin());
 

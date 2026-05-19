@@ -9,13 +9,15 @@ import { getErrorMessage } from "@/lib/errors";
 import { calculateAnswerScore, emptyQuestion, makeRoomCode, parseQuestionsCsv, starterQuestions } from "@/lib/quiz";
 import { announceWinnerWithGemini, playCountdownMusic, playSound, startLobbyMusic, stopAllMusic, stopCountdownMusic, stopLobbyMusic } from "@/lib/sound";
 import { hasSupabaseConfig, requireSupabase } from "@/lib/supabase";
-import { Answer, GameSession, Player, Question, Quiz, UserProfile } from "@/lib/types";
+import { Answer, AppSettings, GameSession, Player, Question, Quiz, QuizDisplayMode, UserProfile } from "@/lib/types";
 
 const swatches = ["bg-coral", "bg-sky", "bg-gold", "bg-mint"];
+const answerSymbols = ["▲", "◆", "●", "■"];
 
 export default function HostPage() {
   const [title, setTitle] = useState("ควิซ AI สำหรับบุคลากรการแพทย์");
   const [questions, setQuestions] = useState<Question[]>(starterQuestions);
+  const [displayMode, setDisplayMode] = useState<QuizDisplayMode>("full");
   const [questionLimit, setQuestionLimit] = useState(starterQuestions.length);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [session, setSession] = useState<GameSession | null>(null);
@@ -23,6 +25,7 @@ export default function HostPage() {
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
   const [activeSession, setActiveSession] = useState<GameSession | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -60,7 +63,8 @@ export default function HostPage() {
   }, [answers, players, questions]);
   const timerProgress =
     session?.status === "question" ? Math.max(0, Math.min(100, (timeLeft / Math.max(1, session.question_duration)) * 100)) : 0;
-  const canHost = Boolean(user && profile && !activeSession && (profile.role === "admin" || profile.role === "host_manager"));
+  const preventParallelRooms = settings?.prevent_parallel_rooms ?? true;
+  const canHost = Boolean(user && profile && (!preventParallelRooms || !activeSession) && (profile.role === "admin" || profile.role === "host_manager"));
 
   useEffect(() => {
     void loadHostAccess();
@@ -227,12 +231,17 @@ export default function HostPage() {
 
       if (!currentUser) {
         setProfile(null);
+        setSettings(null);
         setActiveSession(null);
         return;
       }
 
       const { data: profileData } = await supabase.from("user_profiles").select("*").eq("id", currentUser.id).single();
       setProfile((profileData ?? null) as UserProfile | null);
+
+      const { data: settingsData } = await supabase.from("app_settings").select("*").eq("id", true).maybeSingle();
+      const nextSettings = (settingsData ?? { id: true, prevent_parallel_rooms: true }) as AppSettings;
+      setSettings(nextSettings);
 
       const { data: activeSessionData } = await supabase
         .from("game_sessions")
@@ -326,11 +335,13 @@ export default function HostPage() {
       setError("บัญชีนี้ไม่มีสิทธิ์ host manager");
       return;
     }
-    const blockingSession = await getBlockingActiveSession();
-    if (blockingSession) {
-      setActiveSession(blockingSession);
-      setError(`ตอนนี้มีห้องอื่นกำลังใช้งานอยู่ รหัสห้อง ${blockingSession.room_code} กรุณาจบห้องนั้นก่อน`);
-      return;
+    if (preventParallelRooms) {
+      const blockingSession = await getBlockingActiveSession();
+      if (blockingSession) {
+        setActiveSession(blockingSession);
+        setError(`ตอนนี้มีห้องอื่นกำลังใช้งานอยู่ รหัสห้อง ${blockingSession.room_code} กรุณาจบห้องนั้นก่อน`);
+        return;
+      }
     }
     if (!hasSupabaseConfig) {
       setError("กรุณาตั้งค่า Supabase environment variables ก่อนสร้างห้องเล่นสด");
@@ -350,7 +361,7 @@ export default function HostPage() {
       const supabase = requireSupabase();
       const { data: quizData, error: quizError } = await supabase
         .from("quizzes")
-        .insert({ title: title.trim(), questions: validQuestions })
+        .insert({ title: title.trim(), questions: validQuestions, displayMode })
         .select()
         .single();
 
@@ -373,6 +384,7 @@ export default function HostPage() {
 
       setQuiz(quizData as Quiz);
       setQuestions((quizData as Quiz).questions);
+      setDisplayMode(((quizData as Quiz).displayMode ?? "full") as QuizDisplayMode);
       setSession(sessionData as GameSession);
     } catch (err) {
       setError(getErrorMessage(err, "สร้างห้องเล่นสดไม่สำเร็จ"));
@@ -485,6 +497,7 @@ export default function HostPage() {
           authLoading={authLoading}
           user={user}
           profile={profile}
+          preventParallelRooms={preventParallelRooms}
           activeSession={activeSession}
           onRefresh={() => void loadHostAccess()}
         />
@@ -554,6 +567,29 @@ export default function HostPage() {
                 />
                 ไปข้อถัดไปอัตโนมัติ
               </label>
+              <div className="mt-4 rounded-2xl border border-[#7c3aed]/10 bg-white/75 p-4">
+                <p className="font-black text-[#4c1d95]">รูปแบบการแสดงผล</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <button
+                    onClick={() => setDisplayMode("full")}
+                    className={`thai-button rounded-xl border-2 px-4 py-3 text-left font-black ${
+                      displayMode === "full" ? "border-[#4c1d95] bg-[#ede9fe] text-[#4c1d95]" : "border-ink/10 bg-white text-ink"
+                    }`}
+                  >
+                    แบบปัจจุบัน
+                    <span className="block text-xs font-bold opacity-70">มือถือเห็นข้อความคำตอบเต็ม</span>
+                  </button>
+                  <button
+                    onClick={() => setDisplayMode("classic")}
+                    className={`thai-button rounded-xl border-2 px-4 py-3 text-left font-black ${
+                      displayMode === "classic" ? "border-[#4c1d95] bg-[#ede9fe] text-[#4c1d95]" : "border-ink/10 bg-white text-ink"
+                    }`}
+                  >
+                    แบบ Classic
+                    <span className="block text-xs font-bold opacity-70">มือถือเห็นเฉพาะสีและสัญลักษณ์</span>
+                  </button>
+                </div>
+              </div>
               <p className="mt-3 rounded-xl bg-[#ede9fe] px-3 py-2 text-sm font-bold text-[#6d28d9]">
                 ตอนสร้างห้อง ระบบจะใช้คำถาม {questionLimit} ข้อแรก และใช้เวลา {timerSeconds} วินาทีเท่ากันทุกข้อ
               </p>
@@ -836,9 +872,12 @@ export default function HostPage() {
                   const total = Math.max(1, currentAnswers.length);
                   const percentage = Math.round((counts[index] / total) * 100);
                   return (
-                    <div key={index} className="answer-card overflow-hidden border border-white bg-white">
+                    <div key={index} className={`answer-card overflow-hidden border border-white bg-white ${displayMode === "classic" ? "min-h-20" : ""}`}>
                       <div className={`${swatches[index]} flex items-center justify-between gap-4 px-5 py-4 font-black text-white`}>
-                        <span className="leading-7">{choice.text}</span>
+                        <span className="flex items-center gap-3 leading-7">
+                          {displayMode === "classic" ? <span className="text-3xl leading-none">{answerSymbols[index]}</span> : null}
+                          {choice.text}
+                        </span>
                         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/24">{counts[index] ?? 0}</span>
                       </div>
                       <div className="h-3 bg-[#ede9fe]">
@@ -868,12 +907,14 @@ function HostAccessBanner({
   authLoading,
   user,
   profile,
+  preventParallelRooms,
   activeSession,
   onRefresh,
 }: {
   authLoading: boolean;
   user: User | null;
   profile: UserProfile | null;
+  preventParallelRooms: boolean;
   activeSession: GameSession | null;
   onRefresh: () => void;
 }) {
@@ -897,7 +938,7 @@ function HostAccessBanner({
     );
   }
 
-  if (activeSession) {
+  if (preventParallelRooms && activeSession) {
     return (
       <div className="mb-5 rounded-2xl border-2 border-gold bg-white p-4 shadow-panel">
         <p className="font-black text-[#713f12]">ตอนนี้มีห้องอื่นกำลังใช้งานอยู่</p>
@@ -914,7 +955,9 @@ function HostAccessBanner({
   return (
     <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-panel">
       <p className="font-black text-emerald-800">พร้อมสร้างห้อง Live Quiz</p>
-      <p className="mt-1 text-sm font-bold text-emerald-700">ไม่พบห้องอื่นที่กำลังใช้งานอยู่ในขณะนี้</p>
+      <p className="mt-1 text-sm font-bold text-emerald-700">
+        {preventParallelRooms ? "ไม่พบห้องอื่นที่กำลังใช้งานอยู่ในขณะนี้" : "admin ปิดการตรวจสอบห้องซ้ำไว้ จึงสามารถเปิดหลายห้องพร้อมกันได้"}
+      </p>
     </div>
   );
 }
