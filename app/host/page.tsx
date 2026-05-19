@@ -6,7 +6,7 @@ import { ArrowLeft, Check, Copy, Eye, Plus, Radio, RotateCcw, Timer, Trash2, Vol
 import { SetupWarning } from "@/components/SetupWarning";
 import { getErrorMessage } from "@/lib/errors";
 import { emptyQuestion, makeRoomCode, starterQuestions } from "@/lib/quiz";
-import { playSound, startFunnyLoop } from "@/lib/sound";
+import { playCountdownMusic, playSound, startLobbyMusic, stopAllMusic, stopCountdownMusic, stopLobbyMusic } from "@/lib/sound";
 import { hasSupabaseConfig, requireSupabase } from "@/lib/supabase";
 import { Answer, GameSession, Player, Question, Quiz } from "@/lib/types";
 
@@ -26,8 +26,8 @@ export default function HostPage() {
   const [timeLeft, setTimeLeft] = useState(20);
   const [autoNext, setAutoNext] = useState(true);
   const [musicOn, setMusicOn] = useState(false);
-  const stopMusicRef = useRef<null | (() => void)>(null);
   const autoActionRef = useRef("");
+  const countdownSoundRef = useRef("");
 
   const currentQuestion = session ? questions[session.current_question] : null;
   const currentAnswers = useMemo(
@@ -78,9 +78,28 @@ export default function HostPage() {
 
   useEffect(() => {
     return () => {
-      stopMusicRef.current?.();
+      stopAllMusic();
     };
   }, []);
+
+  useEffect(() => {
+    if (!musicOn || !session) {
+      stopAllMusic();
+      return;
+    }
+
+    if (session.status === "lobby") {
+      void startLobbyMusic();
+      return;
+    }
+
+    if (session.status === "question") {
+      stopLobbyMusic();
+      return;
+    }
+
+    stopAllMusic();
+  }, [musicOn, session?.status, session?.id]);
 
   useEffect(() => {
     if (!session || session.status !== "question" || !session.question_started_at) {
@@ -99,9 +118,16 @@ export default function HostPage() {
         void playSound("tick");
       }
 
+      const countdownKey = `${session.id}-${session.current_question}-${session.question_started_at}`;
+      if (musicOn && nextTimeLeft <= 10 && nextTimeLeft > 0 && countdownSoundRef.current !== countdownKey) {
+        countdownSoundRef.current = countdownKey;
+        void playCountdownMusic(session.current_question, countdownKey);
+      }
+
       const actionKey = `${session.id}-${session.current_question}-${session.question_started_at}`;
       if (autoNext && nextTimeLeft <= 0 && autoActionRef.current !== actionKey) {
         autoActionRef.current = actionKey;
+        stopCountdownMusic();
         void playSound("results");
         void setStatus("results", session.current_question);
         window.setTimeout(() => {
@@ -126,6 +152,7 @@ export default function HostPage() {
     session?.question_started_at,
     session?.question_duration,
     session?.results_duration,
+    musicOn,
   ]);
 
   async function refreshPlayers(sessionId: string) {
@@ -248,14 +275,15 @@ export default function HostPage() {
 
   async function toggleMusic() {
     if (musicOn) {
-      stopMusicRef.current?.();
-      stopMusicRef.current = null;
+      stopAllMusic();
       setMusicOn(false);
       return;
     }
 
-    stopMusicRef.current = await startFunnyLoop();
     setMusicOn(true);
+    if (session?.status === "lobby") {
+      await startLobbyMusic();
+    }
   }
 
   return (

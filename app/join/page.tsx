@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Check, LogIn, Timer, Trophy } from "lucide-react";
 import { SetupWarning } from "@/components/SetupWarning";
 import { getErrorMessage } from "@/lib/errors";
-import { playSound } from "@/lib/sound";
+import { playCountdownMusic, playSound, stopAllMusic, stopCountdownMusic } from "@/lib/sound";
 import { hasSupabaseConfig, requireSupabase } from "@/lib/supabase";
 import { Answer, GameSession, Player, Quiz } from "@/lib/types";
 
@@ -42,6 +42,7 @@ function JoinExperience() {
   const [error, setError] = useState("");
   const [timeLeft, setTimeLeft] = useState(20);
   const lastSoundKeyRef = useRef("");
+  const countdownSoundRef = useRef("");
 
   const currentQuestion = session && quiz ? quiz.questions[session.current_question] : null;
   const currentAnswer = useMemo(
@@ -94,10 +95,22 @@ function JoinExperience() {
     if (lastSoundKeyRef.current !== soundKey) {
       lastSoundKeyRef.current = soundKey;
       if (session.status === "question") void playSound("question");
-      if (session.status === "results") void playSound("results");
-      if (session.status === "ended") void playSound("end");
+      if (session.status === "results") {
+        stopCountdownMusic();
+        void playSound("results");
+      }
+      if (session.status === "ended") {
+        stopAllMusic();
+        void playSound("end");
+      }
     }
   }, [session?.status, session?.current_question, session?.question_started_at]);
+
+  useEffect(() => {
+    return () => {
+      stopAllMusic();
+    };
+  }, []);
 
   useEffect(() => {
     if (!session || session.status !== "question" || !session.question_started_at) {
@@ -108,13 +121,24 @@ function JoinExperience() {
     const updateRemaining = () => {
       const startedAt = new Date(session.question_started_at ?? Date.now()).getTime();
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      setTimeLeft(Math.max(0, session.question_duration - elapsed));
+      const nextTimeLeft = Math.max(0, session.question_duration - elapsed);
+      setTimeLeft(nextTimeLeft);
+
+      const countdownKey = `${session.id}-${session.current_question}-${session.question_started_at}`;
+      if (nextTimeLeft <= 10 && nextTimeLeft > 0 && countdownSoundRef.current !== countdownKey) {
+        countdownSoundRef.current = countdownKey;
+        void playCountdownMusic(session.current_question, countdownKey);
+      }
+
+      if (nextTimeLeft <= 0) {
+        stopCountdownMusic();
+      }
     };
 
     updateRemaining();
     const intervalId = window.setInterval(updateRemaining, 1000);
     return () => window.clearInterval(intervalId);
-  }, [session?.status, session?.question_started_at, session?.question_duration]);
+  }, [session?.id, session?.status, session?.current_question, session?.question_started_at, session?.question_duration]);
 
   async function refreshAnswers(playerId: string) {
     const supabase = requireSupabase();
