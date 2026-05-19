@@ -1,5 +1,34 @@
 create extension if not exists "pgcrypto";
 
+create table if not exists public.user_profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  role text not null default 'host_manager' check (role in ('admin', 'host_manager')),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.reservations (
+  id uuid primary key default gen_random_uuid(),
+  host_user_id uuid not null references public.user_profiles(id) on delete cascade,
+  title text not null,
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  status text not null default 'confirmed' check (status in ('confirmed', 'cancelled')),
+  created_by uuid references public.user_profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  check (ends_at = starts_at + interval '1 hour')
+);
+
+do $$
+begin
+  alter table public.reservations
+    add constraint reservations_no_overlap
+    exclude using gist (tstzrange(starts_at, ends_at, '[)') with &&)
+    where (status = 'confirmed');
+exception
+  when duplicate_object then null;
+end $$;
+
 create table if not exists public.quizzes (
   id uuid primary key default gen_random_uuid(),
   title text not null,
@@ -44,6 +73,51 @@ alter table public.quizzes enable row level security;
 alter table public.game_sessions enable row level security;
 alter table public.players enable row level security;
 alter table public.answers enable row level security;
+alter table public.user_profiles enable row level security;
+alter table public.reservations enable row level security;
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.user_profiles
+    where id = auth.uid() and role = 'admin'
+  );
+$$;
+
+create or replace function public.is_host_manager()
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.user_profiles
+    where id = auth.uid() and role in ('admin', 'host_manager')
+  );
+$$;
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.user_profiles (id, email, role)
+  values (new.id, coalesce(new.email, ''), 'host_manager')
+  on conflict (id) do update set email = excluded.email;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute function public.handle_new_user();
 
 drop policy if exists "demo read quizzes" on public.quizzes;
 drop policy if exists "demo insert quizzes" on public.quizzes;
@@ -55,13 +129,18 @@ drop policy if exists "demo insert players" on public.players;
 drop policy if exists "demo read answers" on public.answers;
 drop policy if exists "demo insert answers" on public.answers;
 drop policy if exists "demo update answers" on public.answers;
+drop policy if exists "profiles read own or admin" on public.user_profiles;
+drop policy if exists "profiles admin update" on public.user_profiles;
+drop policy if exists "reservations read related or admin" on public.reservations;
+drop policy if exists "reservations admin insert" on public.reservations;
+drop policy if exists "reservations admin update" on public.reservations;
 
 create policy "demo read quizzes" on public.quizzes for select using (true);
-create policy "demo insert quizzes" on public.quizzes for insert with check (true);
+create policy "demo insert quizzes" on public.quizzes for insert with check (public.is_host_manager());
 
 create policy "demo read sessions" on public.game_sessions for select using (true);
-create policy "demo insert sessions" on public.game_sessions for insert with check (true);
-create policy "demo update sessions" on public.game_sessions for update using (true) with check (true);
+create policy "demo insert sessions" on public.game_sessions for insert with check (public.is_host_manager());
+create policy "demo update sessions" on public.game_sessions for update using (public.is_host_manager()) with check (public.is_host_manager());
 
 create policy "demo read players" on public.players for select using (true);
 create policy "demo insert players" on public.players for insert with check (true);
@@ -69,6 +148,28 @@ create policy "demo insert players" on public.players for insert with check (tru
 create policy "demo read answers" on public.answers for select using (true);
 create policy "demo insert answers" on public.answers for insert with check (true);
 create policy "demo update answers" on public.answers for update using (true) with check (true);
+
+create policy "profiles read own or admin"
+on public.user_profiles for select
+using (id = auth.uid() or public.is_admin());
+
+create policy "profiles admin update"
+on public.user_profiles for update
+using (public.is_admin())
+with check (public.is_admin());
+
+create policy "reservations read related or admin"
+on public.reservations for select
+using (host_user_id = auth.uid() or public.is_admin());
+
+create policy "reservations admin insert"
+on public.reservations for insert
+with check (public.is_admin());
+
+create policy "reservations admin update"
+on public.reservations for update
+using (public.is_admin())
+with check (public.is_admin());
 
 do $$
 begin

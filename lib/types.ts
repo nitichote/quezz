@@ -43,3 +43,24 @@ export type Answer = {
   choice_index: number;
   created_at?: string;
 };
+
+export type UserRole = "admin" | "host_manager";
+
+export type UserProfile = {
+  id: string;
+  email: string;
+  role: UserRole;
+  created_at?: string;
+};
+
+export type Reservation = {
+  id: string;
+  host_user_id: string;
+  title: string;
+  starts_at: string;
+  ends_at: string;
+  status: "confirmed" | "cancelled";
+  created_by?: string | null;
+  created_at?: string;
+  user_profiles?: UserProfile;
+};

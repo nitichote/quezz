@@ -38,9 +38,23 @@ Import this project into Vercel, add the same environment variables in Project S
 
 ## Seminar flow
 
-- Host opens `/host`, creates a quiz, and shares the room code or join link.
+- Admin opens `/admin`, assigns host manager roles, and books a 1-hour seminar slot.
+- Host manager opens `/login`, signs in, then opens `/host` during their booked slot.
+- Host creates a quiz and shares the room code or join link.
 - Students open `/join`, enter their name and room code, and answer from their devices.
 - Host uses Ask, Results, Next, and End quiz controls.
 - Host can set seconds per question, auto-advance to results, auto-start the next question, and toggle simple quiz music.
 
-The current SQL policies are intentionally open for a demo/seminar MVP. Before using this for public production, tighten RLS and add host authentication.
+## First admin setup
+
+After running `supabase/schema.sql`, create your first user from `/login`. Then in Supabase SQL Editor, promote that user to admin:
+
+```sql
+update public.user_profiles
+set role = 'admin'
+where email = 'your-email@example.com';
+```
+
+Only admins can update roles and create/cancel seminar reservations.
+
+The student join flow remains public for seminar convenience.
