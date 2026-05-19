@@ -24,6 +24,7 @@ export default function HostPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [origin, setOrigin] = useState("");
+  const [showQrCard, setShowQrCard] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -739,6 +740,13 @@ export default function HostPage() {
                   คัดลอกลิงก์
                 </button>
                 <button
+                  onClick={() => setShowQrCard((visible) => !visible)}
+                  className="thai-button inline-flex h-12 items-center justify-center gap-2 border-2 border-[#4c1d95] bg-white font-black text-[#4c1d95]"
+                >
+                  <QrCode size={18} />
+                  {showQrCard ? "ซ่อน QR" : "แสดง QR"}
+                </button>
+                <button
                   onClick={() => askQuestion()}
                   disabled={busy || session.status === "question"}
                   className="thai-button inline-flex h-12 items-center justify-center gap-2 bg-[#34d399] font-black text-ink"
@@ -779,17 +787,24 @@ export default function HostPage() {
                   ยกเลิกห้อง
                 </button>
               </div>
-              <div className="mt-4 rounded-2xl border border-[#7c3aed]/10 bg-white p-4 text-center shadow-panel">
-                <div className="flex items-center justify-center gap-2 font-black text-[#4c1d95]">
-                  <QrCode size={20} />
-                  QR สำหรับผู้เล่น
+              {showQrCard ? (
+                <div className="mt-4 rounded-2xl border border-[#7c3aed]/10 bg-white p-4 text-center shadow-panel">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 font-black text-[#4c1d95]">
+                      <QrCode size={20} />
+                      QR สำหรับผู้เล่น
+                    </div>
+                    <button onClick={() => setShowQrCard(false)} className="rounded-full bg-[#ede9fe] px-3 py-1 text-sm font-black text-[#4c1d95]">
+                      ซ่อน
+                    </button>
+                  </div>
+                  {qrImageUrl ? (
+                    <img src={qrImageUrl} alt="QR code สำหรับเข้าห้อง Live Quiz" className="mx-auto mt-3 h-44 w-44 rounded-xl bg-white object-contain p-2" />
+                  ) : null}
+                  <p className="mt-3 text-xs font-bold text-ink/55">สแกนเพื่อเข้าห้อง หรือเข้า /join แล้วใส่รหัส</p>
+                  <p className="mt-1 text-3xl font-black tracking-widest text-[#4c1d95]">{session.room_code}</p>
                 </div>
-                {qrImageUrl ? (
-                  <img src={qrImageUrl} alt="QR code สำหรับเข้าห้อง Live Quiz" className="mx-auto mt-3 h-44 w-44 rounded-xl bg-white object-contain p-2" />
-                ) : null}
-                <p className="mt-3 text-xs font-bold text-ink/55">สแกนเพื่อเข้าห้อง หรือเข้า /join แล้วใส่รหัส</p>
-                <p className="mt-1 text-3xl font-black tracking-widest text-[#4c1d95]">{session.room_code}</p>
-              </div>
+              ) : null}
               <div className="mt-4 rounded-2xl border border-[#7c3aed]/10 bg-gradient-to-br from-white to-[#f5f3ff] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 font-black">
