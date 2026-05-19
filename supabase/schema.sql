@@ -7,28 +7,6 @@ create table if not exists public.user_profiles (
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.reservations (
-  id uuid primary key default gen_random_uuid(),
-  host_user_id uuid not null references public.user_profiles(id) on delete cascade,
-  title text not null,
-  starts_at timestamptz not null,
-  ends_at timestamptz not null,
-  status text not null default 'confirmed' check (status in ('confirmed', 'cancelled')),
-  created_by uuid references public.user_profiles(id) on delete set null,
-  created_at timestamptz not null default now(),
-  check (ends_at = starts_at + interval '1 hour')
-);
-
-do $$
-begin
-  alter table public.reservations
-    add constraint reservations_no_overlap
-    exclude using gist (tstzrange(starts_at, ends_at, '[)') with &&)
-    where (status = 'confirmed');
-exception
-  when duplicate_object then null;
-end $$;
-
 create table if not exists public.quizzes (
   id uuid primary key default gen_random_uuid(),
   title text not null,
@@ -74,7 +52,6 @@ alter table public.game_sessions enable row level security;
 alter table public.players enable row level security;
 alter table public.answers enable row level security;
 alter table public.user_profiles enable row level security;
-alter table public.reservations enable row level security;
 
 create or replace function public.is_admin()
 returns boolean
@@ -131,9 +108,6 @@ drop policy if exists "demo insert answers" on public.answers;
 drop policy if exists "demo update answers" on public.answers;
 drop policy if exists "profiles read own or admin" on public.user_profiles;
 drop policy if exists "profiles admin update" on public.user_profiles;
-drop policy if exists "reservations read related or admin" on public.reservations;
-drop policy if exists "reservations admin insert" on public.reservations;
-drop policy if exists "reservations admin update" on public.reservations;
 
 create policy "demo read quizzes" on public.quizzes for select using (true);
 create policy "demo insert quizzes" on public.quizzes for insert with check (public.is_host_manager());
@@ -158,18 +132,6 @@ on public.user_profiles for update
 using (public.is_admin())
 with check (public.is_admin());
 
-create policy "reservations read related or admin"
-on public.reservations for select
-using (host_user_id = auth.uid() or public.is_admin());
-
-create policy "reservations admin insert"
-on public.reservations for insert
-with check (public.is_admin());
-
-create policy "reservations admin update"
-on public.reservations for update
-using (public.is_admin())
-with check (public.is_admin());
 
 do $$
 begin

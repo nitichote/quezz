@@ -38,8 +38,9 @@ Import this project into Vercel, add the same environment variables in Project S
 
 ## Seminar flow
 
-- Admin opens `/admin`, assigns host manager roles, and books a 1-hour seminar slot.
-- Host manager opens `/login`, signs in, then opens `/host` during their booked slot.
+- Admin opens `/admin` and assigns host manager roles.
+- Host manager opens `/login`, signs in, then opens `/host`.
+- When a host creates a room, the app checks whether another room is already active. If yes, it blocks creating a new room until the active one ends.
 - Host creates a quiz and shares the room code or join link.
 - Students open `/join`, enter their name and room code, and answer from their devices.
 - Host uses Ask, Results, Next, and End quiz controls.
@@ -55,6 +56,6 @@ set role = 'admin'
 where email = 'your-email@example.com';
 ```
 
-Only admins can update roles and create/cancel seminar reservations.
+Only admins can update roles.
 
 The student join flow remains public for seminar convenience.

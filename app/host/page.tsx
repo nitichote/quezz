@@ -9,7 +9,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { calculateAnswerScore, emptyQuestion, makeRoomCode, parseQuestionsCsv, starterQuestions } from "@/lib/quiz";
 import { announceWinnerWithGemini, playCountdownMusic, playSound, startLobbyMusic, stopAllMusic, stopCountdownMusic, stopLobbyMusic } from "@/lib/sound";
 import { hasSupabaseConfig, requireSupabase } from "@/lib/supabase";
-import { Answer, GameSession, Player, Question, Quiz, Reservation, UserProfile } from "@/lib/types";
+import { Answer, GameSession, Player, Question, Quiz, UserProfile } from "@/lib/types";
 
 const swatches = ["bg-coral", "bg-sky", "bg-gold", "bg-mint"];
 
@@ -23,7 +23,7 @@ export default function HostPage() {
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [activeReservation, setActiveReservation] = useState<Reservation | null>(null);
+  const [activeSession, setActiveSession] = useState<GameSession | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -60,7 +60,7 @@ export default function HostPage() {
   }, [answers, players, questions]);
   const timerProgress =
     session?.status === "question" ? Math.max(0, Math.min(100, (timeLeft / Math.max(1, session.question_duration)) * 100)) : 0;
-  const canHost = Boolean(user && profile && activeReservation && (profile.role === "admin" || profile.role === "host_manager"));
+  const canHost = Boolean(user && profile && !activeSession && (profile.role === "admin" || profile.role === "host_manager"));
 
   useEffect(() => {
     void loadHostAccess();
@@ -227,26 +227,22 @@ export default function HostPage() {
 
       if (!currentUser) {
         setProfile(null);
-        setActiveReservation(null);
+        setActiveSession(null);
         return;
       }
 
       const { data: profileData } = await supabase.from("user_profiles").select("*").eq("id", currentUser.id).single();
       setProfile((profileData ?? null) as UserProfile | null);
 
-      const now = new Date().toISOString();
-      const { data: reservationData } = await supabase
-        .from("reservations")
+      const { data: activeSessionData } = await supabase
+        .from("game_sessions")
         .select("*")
-        .eq("host_user_id", currentUser.id)
-        .eq("status", "confirmed")
-        .lte("starts_at", now)
-        .gt("ends_at", now)
-        .order("starts_at", { ascending: false })
+        .in("status", ["lobby", "question", "results"])
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      setActiveReservation((reservationData ?? null) as Reservation | null);
+      setActiveSession((activeSessionData ?? null) as GameSession | null);
     } finally {
       setAuthLoading(false);
     }
@@ -256,6 +252,20 @@ export default function HostPage() {
     const supabase = requireSupabase();
     await supabase.auth.signOut();
     window.location.href = "/login";
+  }
+
+  async function getBlockingActiveSession() {
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("game_sessions")
+      .select("*")
+      .in("status", ["lobby", "question", "results"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return (data ?? null) as GameSession | null;
   }
 
   function updateQuestion(index: number, patch: Partial<Question>) {
@@ -316,8 +326,10 @@ export default function HostPage() {
       setError("บัญชีนี้ไม่มีสิทธิ์ host manager");
       return;
     }
-    if (!activeReservation) {
-      setError("ยังไม่มี reservation slot ที่ active ในเวลานี้ กรุณาให้ admin จองเวลาใช้งานก่อน");
+    const blockingSession = await getBlockingActiveSession();
+    if (blockingSession) {
+      setActiveSession(blockingSession);
+      setError(`ตอนนี้มีห้องอื่นกำลังใช้งานอยู่ รหัสห้อง ${blockingSession.room_code} กรุณาจบห้องนั้นก่อน`);
       return;
     }
     if (!hasSupabaseConfig) {
@@ -473,7 +485,7 @@ export default function HostPage() {
           authLoading={authLoading}
           user={user}
           profile={profile}
-          reservation={activeReservation}
+          activeSession={activeSession}
           onRefresh={() => void loadHostAccess()}
         />
         {error ? <div className="mb-5 rounded-md border-2 border-coral bg-white p-4 font-bold text-coral">{error}</div> : null}
@@ -856,13 +868,13 @@ function HostAccessBanner({
   authLoading,
   user,
   profile,
-  reservation,
+  activeSession,
   onRefresh,
 }: {
   authLoading: boolean;
   user: User | null;
   profile: UserProfile | null;
-  reservation: Reservation | null;
+  activeSession: GameSession | null;
   onRefresh: () => void;
 }) {
   if (authLoading) {
@@ -885,11 +897,13 @@ function HostAccessBanner({
     );
   }
 
-  if (!reservation) {
+  if (activeSession) {
     return (
       <div className="mb-5 rounded-2xl border-2 border-gold bg-white p-4 shadow-panel">
-        <p className="font-black text-[#713f12]">ยังไม่มี slot ที่ active ในเวลานี้</p>
-        <p className="mt-1 text-sm font-bold text-ink/60">ต้องให้ admin จอง seminar slot 1 ชั่วโมงให้บัญชีนี้ก่อน จึงจะสร้างห้องได้</p>
+        <p className="font-black text-[#713f12]">ตอนนี้มีห้องอื่นกำลังใช้งานอยู่</p>
+        <p className="mt-1 text-sm font-bold text-ink/60">
+          รหัสห้อง {activeSession.room_code} สถานะ {activeSession.status} กรุณาจบห้องนั้นก่อนสร้างห้องใหม่
+        </p>
         <button onClick={onRefresh} className="thai-button mt-3 rounded-xl bg-[#4c1d95] px-4 py-2 font-black text-white">
           ตรวจสอบอีกครั้ง
         </button>
@@ -899,10 +913,8 @@ function HostAccessBanner({
 
   return (
     <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-panel">
-      <p className="font-black text-emerald-800">พร้อมใช้งาน slot: {reservation.title}</p>
-      <p className="mt-1 text-sm font-bold text-emerald-700">
-        {new Date(reservation.starts_at).toLocaleString()} - {new Date(reservation.ends_at).toLocaleTimeString()}
-      </p>
+      <p className="font-black text-emerald-800">พร้อมสร้างห้อง Live Quiz</p>
+      <p className="mt-1 text-sm font-bold text-emerald-700">ไม่พบห้องอื่นที่กำลังใช้งานอยู่ในขณะนี้</p>
     </div>
   );
 }

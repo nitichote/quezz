@@ -52,15 +52,3 @@ export type UserProfile = {
   role: UserRole;
   created_at?: string;
 };
-
-export type Reservation = {
-  id: string;
-  host_user_id: string;
-  title: string;
-  starts_at: string;
-  ends_at: string;
-  status: "confirmed" | "cancelled";
-  created_by?: string | null;
-  created_at?: string;
-  user_profiles?: UserProfile;
-};
