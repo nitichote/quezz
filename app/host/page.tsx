@@ -15,6 +15,7 @@ const swatches = ["bg-coral", "bg-sky", "bg-gold", "bg-mint"];
 export default function HostPage() {
   const [title, setTitle] = useState("ควิซ AI สำหรับบุคลากรการแพทย์");
   const [questions, setQuestions] = useState<Question[]>(starterQuestions);
+  const [questionLimit, setQuestionLimit] = useState(starterQuestions.length);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [session, setSession] = useState<GameSession | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -206,9 +207,11 @@ export default function HostPage() {
       return;
     }
 
-    const validQuestions = questions.filter((question) => question.prompt.trim() && question.choices.every((choice) => choice.text.trim()));
+    const validQuestions = questions
+      .filter((question) => question.prompt.trim() && question.choices.every((choice) => choice.text.trim()))
+      .slice(0, questionLimit);
     if (!title.trim() || validQuestions.length === 0) {
-      setError("กรุณาใส่ชื่อควิซและมีคำถามที่สมบูรณ์อย่างน้อย 1 ข้อ");
+      setError("กรุณาใส่ชื่อควิซและเลือกคำถามที่สมบูรณ์อย่างน้อย 1 ข้อ");
       return;
     }
 
@@ -353,7 +356,21 @@ export default function HostPage() {
                 <Radio size={19} />
                 สร้างห้องเล่นสด
               </button>
-              <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="mt-5 grid grid-cols-3 gap-3">
+                <label className="text-sm font-black">
+                  จำนวนข้อ
+                  <input
+                    type="number"
+                    min={1}
+                    max={questions.length}
+                    value={questionLimit}
+                    onChange={(event) => {
+                      const nextLimit = Number(event.target.value);
+                      setQuestionLimit(Math.max(1, Math.min(questions.length, nextLimit)));
+                    }}
+                    className="mt-2 h-11 w-full rounded-xl border-2 border-[#7c3aed]/15 bg-white px-3 outline-none focus:border-[#7c3aed]"
+                  />
+                </label>
                 <label className="text-sm font-black">
                   วินาทีต่อข้อ
                   <input
@@ -386,6 +403,9 @@ export default function HostPage() {
                 />
                 ไปข้อถัดไปอัตโนมัติ
               </label>
+              <p className="mt-3 rounded-xl bg-[#ede9fe] px-3 py-2 text-sm font-bold text-[#6d28d9]">
+                ตอนสร้างห้อง ระบบจะใช้คำถาม {questionLimit} ข้อแรก และใช้เวลา {timerSeconds} วินาทีเท่ากันทุกข้อ
+              </p>
             </div>
 
             <div className="grid gap-4">
@@ -395,7 +415,13 @@ export default function HostPage() {
                     <p className="font-black">คำถามที่ {questionIndex + 1}</p>
                     <button
                       aria-label="ลบคำถาม"
-                      onClick={() => setQuestions((items) => items.filter((_, index) => index !== questionIndex))}
+                      onClick={() =>
+                        setQuestions((items) => {
+                          const nextItems = items.filter((_, index) => index !== questionIndex);
+                          setQuestionLimit((limit) => Math.max(1, Math.min(limit, nextItems.length)));
+                          return nextItems;
+                        })
+                      }
                       className="grid h-9 w-9 place-items-center rounded-md border-2 border-ink/10 text-ink/55 hover:text-coral"
                     >
                       <Trash2 size={17} />
@@ -427,7 +453,13 @@ export default function HostPage() {
                 </div>
               ))}
               <button
-                onClick={() => setQuestions((items) => [...items, emptyQuestion()])}
+                onClick={() =>
+                  setQuestions((items) => {
+                    const nextItems = [...items, emptyQuestion()];
+                    setQuestionLimit(nextItems.length);
+                    return nextItems;
+                  })
+                }
                 className="thai-button inline-flex h-12 items-center justify-center gap-2 border-2 border-[#4c1d95] bg-white font-black text-[#4c1d95]"
               >
                 <Plus size={19} />
