@@ -27,6 +27,7 @@ export default function HostPage() {
   const [timeLeft, setTimeLeft] = useState(10);
   const [autoNext, setAutoNext] = useState(true);
   const [musicOn, setMusicOn] = useState(false);
+  const [ttsStatus, setTtsStatus] = useState("");
   const autoActionRef = useRef("");
   const countdownSoundRef = useRef("");
   const winnerAnnouncedRef = useRef("");
@@ -123,7 +124,11 @@ export default function HostPage() {
     stopAllMusic();
     void playSound("end");
     window.setTimeout(() => {
-      void announceWinnerWithGemini(winner.name);
+      void announceWinnerWithGemini(winner.name).then((result) => {
+        if (result === "browser") {
+          setTtsStatus("Gemini TTS ใช้ไม่ได้ จึงใช้เสียงจาก browser แทน");
+        }
+      });
     }, 850);
   }, [leaderboard, session?.id, session?.status]);
 
@@ -236,14 +241,13 @@ export default function HostPage() {
       return;
     }
 
-    if (file.size > 700_000) {
-      setError("รูปภาพใหญ่เกินไป กรุณาใช้รูปไม่เกิน 700KB เพื่อให้เล่นบนมือถือได้ลื่น");
-      return;
+    try {
+      const imageUrl = file.size > 700_000 ? await compressImageToDataUrl(file, 700_000) : await readFileAsDataUrl(file);
+      updateQuestion(questionIndex, { imageUrl });
+      setError(file.size > 700_000 ? "บีบอัดรูปให้ต่ำกว่า 700KB แล้ว" : "");
+    } catch (err) {
+      setError(getErrorMessage(err, "บีบอัดหรืออ่านรูปภาพไม่สำเร็จ"));
     }
-
-    const imageUrl = await readFileAsDataUrl(file);
-    updateQuestion(questionIndex, { imageUrl });
-    setError("");
   }
 
   async function createSession() {
@@ -684,7 +688,12 @@ export default function HostPage() {
                 <WinnerPodium
                   leaderboard={leaderboard.slice(0, 3)}
                   totalQuestions={questions.length}
-                  onAnnounce={() => void announceWinnerWithGemini(leaderboard[0]?.name)}
+                  ttsStatus={ttsStatus}
+                  onAnnounce={() =>
+                    void announceWinnerWithGemini(leaderboard[0]?.name).then((result) => {
+                      setTtsStatus(result === "gemini" ? "เล่นเสียง Gemini TTS แล้ว" : "Gemini TTS ใช้ไม่ได้ จึงใช้เสียงจาก browser แทน");
+                    })
+                  }
                 />
                 <ScoreSummary players={leaderboard} answers={answers} questions={questions} session={session} />
               </div>
@@ -763,6 +772,48 @@ function readFileAsDataUrl(file: File) {
   });
 }
 
+async function compressImageToDataUrl(file: File, maxBytes: number) {
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("browser ไม่รองรับการบีบอัดรูป");
+
+  let width = bitmap.width;
+  let height = bitmap.height;
+  let quality = 0.86;
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    canvas.width = Math.max(1, Math.round(width));
+    canvas.height = Math.max(1, Math.round(height));
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+    if (!blob) throw new Error("บีบอัดรูปไม่สำเร็จ");
+    if (blob.size <= maxBytes) {
+      return await blobToDataUrl(blob);
+    }
+
+    if (quality > 0.58) {
+      quality -= 0.08;
+    } else {
+      width *= 0.86;
+      height *= 0.86;
+    }
+  }
+
+  throw new Error("รูปภาพยังใหญ่เกินไปหลังบีบอัด กรุณาเลือกรูปที่เล็กลง");
+}
+
+function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("แปลงรูปภาพไม่สำเร็จ"));
+    reader.readAsDataURL(blob);
+  });
+}
+
 function LiveLeaderboard({
   leaderboard,
   totalQuestions,
@@ -834,10 +885,12 @@ function WinnerPodium({
   leaderboard,
   totalQuestions,
   onAnnounce,
+  ttsStatus,
 }: {
   leaderboard: Array<Player & { score: number }>;
   totalQuestions: number;
   onAnnounce: () => void;
+  ttsStatus: string;
 }) {
   const first = leaderboard[0];
   const second = leaderboard[1];
@@ -865,8 +918,9 @@ function WinnerPodium({
           onClick={onAnnounce}
           className="thai-button mt-4 rounded-xl bg-[#4c1d95] px-5 py-3 font-black text-white"
         >
-          ประกาศผู้ชนะอีกครั้ง
+          ประกาศผู้ชนะด้วย Gemini TTS
         </button>
+        {ttsStatus ? <p className="mt-2 text-sm font-bold text-ink/65">{ttsStatus}</p> : null}
       </div>
     </div>
   );

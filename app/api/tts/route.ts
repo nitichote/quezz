@@ -46,12 +46,14 @@ export async function POST(request: Request) {
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error("Gemini TTS error", response.status, errorText);
     return Response.json({ error: errorText }, { status: response.status });
   }
 
   const payload = await response.json();
   const audioBase64 = payload?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
   if (!audioBase64) {
+    console.error("Gemini TTS missing audio", JSON.stringify(payload).slice(0, 1000));
     return Response.json({ error: "Gemini did not return audio" }, { status: 502 });
   }
 

@@ -133,8 +133,8 @@ export async function announceWinner(name?: string) {
   window.speechSynthesis.speak(utterance);
 }
 
-export async function announceWinnerWithGemini(name?: string) {
-  if (!name) return;
+export async function announceWinnerWithGemini(name?: string): Promise<"gemini" | "browser" | "failed"> {
+  if (!name) return "failed";
 
   try {
     await unlockAudio();
@@ -156,7 +156,9 @@ export async function announceWinnerWithGemini(name?: string) {
     ttsAudio.volume = 1;
     ttsAudio.onended = () => URL.revokeObjectURL(audioUrl);
     await ttsAudio.play();
+    return "gemini";
   } catch {
     await announceWinner(name);
+    return "browser";
   }
 }
