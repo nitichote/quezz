@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, Copy, Crown, Eye, Medal, Plus, Radio, RotateCcw, Timer, Trash2, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Check, Copy, Crown, Eye, Medal, Plus, Radio, RotateCcw, Timer, Trash2, Trophy, Volume2, VolumeX } from "lucide-react";
 import { SetupWarning } from "@/components/SetupWarning";
 import { getErrorMessage } from "@/lib/errors";
 import { emptyQuestion, makeRoomCode, starterQuestions } from "@/lib/quiz";
-import { playCountdownMusic, playSound, startLobbyMusic, stopAllMusic, stopCountdownMusic, stopLobbyMusic } from "@/lib/sound";
+import { announceWinner, playCountdownMusic, playSound, startLobbyMusic, stopAllMusic, stopCountdownMusic, stopLobbyMusic } from "@/lib/sound";
 import { hasSupabaseConfig, requireSupabase } from "@/lib/supabase";
 import { Answer, GameSession, Player, Question, Quiz } from "@/lib/types";
 
@@ -29,6 +29,7 @@ export default function HostPage() {
   const [musicOn, setMusicOn] = useState(false);
   const autoActionRef = useRef("");
   const countdownSoundRef = useRef("");
+  const winnerAnnouncedRef = useRef("");
 
   const currentQuestion = session ? questions[session.current_question] : null;
   const currentAnswers = useMemo(
@@ -50,8 +51,7 @@ export default function HostPage() {
         ).length;
         return { ...player, score };
       })
-      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
-      .slice(0, 3);
+      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
   }, [answers, players, questions]);
   const timerProgress =
     session?.status === "question" ? Math.max(0, Math.min(100, (timeLeft / Math.max(1, session.question_duration)) * 100)) : 0;
@@ -112,6 +112,21 @@ export default function HostPage() {
 
     stopAllMusic();
   }, [musicOn, session?.status, session?.id]);
+
+  useEffect(() => {
+    if (!session || session.status !== "ended" || leaderboard.length === 0) return;
+
+    const winner = leaderboard[0];
+    const announceKey = `${session.id}-${winner.id}-${winner.score}`;
+    if (winnerAnnouncedRef.current === announceKey) return;
+
+    winnerAnnouncedRef.current = announceKey;
+    stopAllMusic();
+    void playSound("end");
+    window.setTimeout(() => {
+      void announceWinner(winner.name);
+    }, 850);
+  }, [leaderboard, session?.id, session?.status]);
 
   useEffect(() => {
     if (!session || session.status !== "question" || !session.question_started_at) {
@@ -552,10 +567,43 @@ export default function HostPage() {
                   )}
                 </div>
               </div>
+              <div className="mt-5">
+                <div className="flex items-center gap-2 font-black text-[#4c1d95]">
+                  <Trophy size={18} />
+                  ตารางคะแนน
+                </div>
+                <div className="mt-2 max-h-80 overflow-auto rounded-2xl border border-[#7c3aed]/10 bg-white/80">
+                  {leaderboard.length ? (
+                    leaderboard.map((player, index) => (
+                      <div key={player.id} className="flex items-center justify-between gap-3 border-b border-[#7c3aed]/10 px-3 py-3 last:border-b-0">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span
+                            className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-black ${
+                              index === 0
+                                ? "bg-yellow-300 text-[#713f12]"
+                                : index === 1
+                                  ? "bg-slate-200 text-slate-700"
+                                  : index === 2
+                                    ? "bg-orange-300 text-[#7c2d12]"
+                                    : "bg-[#ede9fe] text-[#6d28d9]"
+                            }`}
+                          >
+                            {index + 1}
+                          </span>
+                          <span className="truncate font-black">{player.name}</span>
+                        </div>
+                        <span className="rounded-full bg-[#4c1d95] px-3 py-1 text-sm font-black text-white">{player.score}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="px-3 py-4 text-sm font-bold text-ink/50">ยังไม่มีคะแนน</p>
+                  )}
+                </div>
+              </div>
             </aside>
 
             {session.status === "ended" ? (
-              <WinnerPodium leaderboard={leaderboard} totalQuestions={questions.length} />
+              <WinnerPodium leaderboard={leaderboard.slice(0, 3)} totalQuestions={questions.length} />
             ) : (
             <div className="thai-panel rounded-2xl p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">

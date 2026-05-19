@@ -95,7 +95,7 @@ export async function playCountdownMusic(questionIndex: number, countdownKey: st
   stopLobbyMusic();
   activeCountdownKey = countdownKey;
   const track = countdownTracks[questionIndex % countdownTracks.length];
-  countdownAudio = createAudio(track, false, 0.85);
+  countdownAudio = createAudio(track, true, 0.85);
   await safePlay(countdownAudio);
 }
 
@@ -109,4 +109,21 @@ export function stopCountdownMusic() {
 export function stopAllMusic() {
   stopLobbyMusic();
   stopCountdownMusic();
+}
+
+export async function announceWinner(name?: string) {
+  await unlockAudio();
+  if (!name || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+
+  window.speechSynthesis.cancel();
+  const message = `ขอเสียงปรบมือดังๆ ผู้ชนะลำดับที่หนึ่งคือ ${name}`;
+  const utterance = new SpeechSynthesisUtterance(message);
+  const voices = window.speechSynthesis.getVoices();
+  const thaiVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith("th"));
+  if (thaiVoice) utterance.voice = thaiVoice;
+  utterance.lang = "th-TH";
+  utterance.rate = 0.92;
+  utterance.pitch = 1.18;
+  utterance.volume = 1;
+  window.speechSynthesis.speak(utterance);
 }
