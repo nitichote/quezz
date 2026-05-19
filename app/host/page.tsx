@@ -21,9 +21,9 @@ export default function HostPage() {
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [timerSeconds, setTimerSeconds] = useState(20);
+  const [timerSeconds, setTimerSeconds] = useState(10);
   const [resultsSeconds, setResultsSeconds] = useState(5);
-  const [timeLeft, setTimeLeft] = useState(20);
+  const [timeLeft, setTimeLeft] = useState(10);
   const [autoNext, setAutoNext] = useState(true);
   const [musicOn, setMusicOn] = useState(false);
   const autoActionRef = useRef("");
