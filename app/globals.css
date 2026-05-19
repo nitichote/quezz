@@ -12,6 +12,7 @@
 
 body {
   margin: 0;
+  font-family: "Noto Sans Thai", "Leelawadee UI", Tahoma, system-ui, sans-serif;
   background:
     radial-gradient(circle at 12% 8%, rgba(255, 180, 213, 0.45), transparent 28%),
     radial-gradient(circle at 86% 12%, rgba(102, 224, 208, 0.38), transparent 26%),
@@ -61,4 +62,37 @@ button:disabled {
     url("/images/winner-bg.png");
   background-size: cover;
   background-position: center;
+}
+
+.thai-bg {
+  background:
+    radial-gradient(circle at 8% 16%, rgba(251, 113, 133, 0.32), transparent 24%),
+    radial-gradient(circle at 90% 8%, rgba(45, 212, 191, 0.32), transparent 24%),
+    radial-gradient(circle at 70% 86%, rgba(250, 204, 21, 0.22), transparent 28%),
+    linear-gradient(135deg, #fff7ed 0%, #f8f1ff 42%, #ecfeff 100%);
+}
+
+.thai-header {
+  border: 2px solid rgba(255, 255, 255, 0.68);
+  background:
+    linear-gradient(135deg, rgba(124, 58, 237, 0.96), rgba(236, 72, 153, 0.86)),
+    radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.36), transparent 20%);
+  box-shadow: 0 24px 70px rgba(124, 58, 237, 0.24);
+}
+
+.thai-panel {
+  border: 1px solid rgba(124, 58, 237, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 22px 70px rgba(76, 29, 149, 0.12);
+  backdrop-filter: blur(18px);
+}
+
+.thai-button {
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(76, 29, 149, 0.12);
+}
+
+.answer-card {
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(76, 29, 149, 0.12);
 }
