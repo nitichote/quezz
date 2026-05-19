@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, Copy, Crown, Eye, Medal, Plus, Radio, RotateCcw, Timer, Trash2, Trophy, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Check, Copy, Crown, Eye, Medal, Plus, QrCode, Radio, RotateCcw, Timer, Trash2, Trophy, Volume2, VolumeX, XCircle } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import { SetupWarning } from "@/components/SetupWarning";
 import { getErrorMessage } from "@/lib/errors";
@@ -23,6 +23,7 @@ export default function HostPage() {
   const [session, setSession] = useState<GameSession | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const [origin, setOrigin] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -65,9 +66,12 @@ export default function HostPage() {
     session?.status === "question" ? Math.max(0, Math.min(100, (timeLeft / Math.max(1, session.question_duration)) * 100)) : 0;
   const preventParallelRooms = settings?.prevent_parallel_rooms ?? true;
   const canHost = Boolean(user && profile && (!preventParallelRooms || !activeSession) && (profile.role === "admin" || profile.role === "host_manager"));
+  const joinLink = session && origin ? `${origin}/join?code=${session.room_code}` : "";
+  const qrImageUrl = joinLink ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=12&data=${encodeURIComponent(joinLink)}` : "";
 
   useEffect(() => {
     void loadHostAccess();
+    setOrigin(window.location.origin);
   }, []);
 
   useEffect(() => {
@@ -420,8 +424,8 @@ export default function HostPage() {
   }
 
   async function copyJoinLink() {
-    if (!session) return;
-    await navigator.clipboard.writeText(`${window.location.origin}/join?code=${session.room_code}`);
+    if (!joinLink) return;
+    await navigator.clipboard.writeText(joinLink);
   }
 
   async function askQuestion(questionIndex = session?.current_question ?? 0) {
@@ -439,6 +443,32 @@ export default function HostPage() {
     setMusicOn(true);
     if (session?.status === "lobby") {
       await startLobbyMusic();
+    }
+  }
+
+  async function cancelLobbySession() {
+    if (!session || session.status !== "lobby") return;
+    const confirmed = window.confirm("ยกเลิกห้องรอนี้ใช่ไหม? นักเรียนที่อยู่ในห้องนี้จะไม่สามารถเล่นต่อได้");
+    if (!confirmed) return;
+
+    setBusy(true);
+    setError("");
+    try {
+      const supabase = requireSupabase();
+      const { error: sessionError } = await supabase.from("game_sessions").update({ status: "ended" }).eq("id", session.id);
+      if (sessionError) throw sessionError;
+
+      stopAllMusic();
+      setSession(null);
+      setQuiz(null);
+      setPlayers([]);
+      setAnswers([]);
+      setActiveSession(null);
+      await loadHostAccess();
+    } catch (err) {
+      setError(getErrorMessage(err, "ยกเลิกห้องไม่สำเร็จ"));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -718,8 +748,9 @@ export default function HostPage() {
                 </button>
                 <button
                   onClick={() => setStatus("results")}
-                  disabled={busy || session.status === "results"}
+                  disabled={busy || session.status !== "question"}
                   className="thai-button inline-flex h-12 items-center justify-center gap-2 bg-[#facc15] font-black text-ink"
+                  title="ใช้หลังเริ่มคำถาม เพื่อหยุดรับคำตอบและแสดงคำตอบที่ถูก"
                 >
                   <Eye size={18} />
                   เฉลย
@@ -739,6 +770,25 @@ export default function HostPage() {
                   {musicOn ? <VolumeX size={18} /> : <Volume2 size={18} />}
                   เพลง
                 </button>
+                <button
+                  onClick={cancelLobbySession}
+                  disabled={busy || session.status !== "lobby"}
+                  className="thai-button inline-flex h-12 items-center justify-center gap-2 border-2 border-coral bg-white font-black text-coral disabled:opacity-50"
+                >
+                  <XCircle size={18} />
+                  ยกเลิกห้อง
+                </button>
+              </div>
+              <div className="mt-4 rounded-2xl border border-[#7c3aed]/10 bg-white p-4 text-center shadow-panel">
+                <div className="flex items-center justify-center gap-2 font-black text-[#4c1d95]">
+                  <QrCode size={20} />
+                  QR สำหรับผู้เล่น
+                </div>
+                {qrImageUrl ? (
+                  <img src={qrImageUrl} alt="QR code สำหรับเข้าห้อง Live Quiz" className="mx-auto mt-3 h-44 w-44 rounded-xl bg-white object-contain p-2" />
+                ) : null}
+                <p className="mt-3 text-xs font-bold text-ink/55">สแกนเพื่อเข้าห้อง หรือเข้า /join แล้วใส่รหัส</p>
+                <p className="mt-1 text-3xl font-black tracking-widest text-[#4c1d95]">{session.room_code}</p>
               </div>
               <div className="mt-4 rounded-2xl border border-[#7c3aed]/10 bg-gradient-to-br from-white to-[#f5f3ff] p-4">
                 <div className="flex items-center justify-between gap-3">
@@ -760,6 +810,9 @@ export default function HostPage() {
                   />
                   เฉลยและไปข้อต่อไปอัตโนมัติ
                 </label>
+                <p className="mt-2 text-xs font-bold text-ink/55">
+                  ปุ่มเฉลยกดได้ตอนกำลังนับเวลาคำถาม ใช้หยุดรับคำตอบและแสดงคำตอบที่ถูกพร้อมจำนวนคนตอบแต่ละตัวเลือก
+                </p>
               </div>
               <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-2xl bg-[#4c1d95] p-3 text-white">
@@ -871,14 +924,28 @@ export default function HostPage() {
                 {currentQuestion?.choices.map((choice, index) => {
                   const total = Math.max(1, currentAnswers.length);
                   const percentage = Math.round((counts[index] / total) * 100);
+                  const isCorrect = currentQuestion.correctIndex === index;
                   return (
-                    <div key={index} className={`answer-card overflow-hidden border border-white bg-white ${displayMode === "classic" ? "min-h-20" : ""}`}>
+                    <div
+                      key={index}
+                      className={`answer-card overflow-hidden border bg-white ${
+                        session.status === "results" && isCorrect ? "border-4 border-emerald-400" : "border-white"
+                      } ${displayMode === "classic" ? "min-h-20" : ""}`}
+                    >
                       <div className={`${swatches[index]} flex items-center justify-between gap-4 px-5 py-4 font-black text-white`}>
                         <span className="flex items-center gap-3 leading-7">
                           {displayMode === "classic" ? <span className="text-3xl leading-none">{answerSymbols[index]}</span> : null}
                           {choice.text}
                         </span>
-                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/24">{counts[index] ?? 0}</span>
+                        <span className="flex shrink-0 items-center gap-2">
+                          {session.status === "results" && isCorrect ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-sm font-black text-emerald-700">
+                              <Check size={16} />
+                              ถูก
+                            </span>
+                          ) : null}
+                          <span className="grid h-9 w-9 place-items-center rounded-full bg-white/24">{counts[index] ?? 0}</span>
+                        </span>
                       </div>
                       <div className="h-3 bg-[#ede9fe]">
                         <div className="h-full bg-[#4c1d95] transition-all" style={{ width: `${percentage}%` }} />
