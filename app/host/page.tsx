@@ -312,7 +312,7 @@ export default function HostPage() {
               <div className="mt-5 inline-flex rounded-full bg-white/18 px-4 py-2 text-sm font-black tracking-wide">
                 เวทีควิซ AI สำหรับ Seminar
               </div>
-              <h1 className="mt-3 text-4xl font-black leading-tight sm:text-6xl">คุมเกมควิซสด</h1>
+              <h1 className="mt-3 text-4xl font-black leading-tight sm:text-6xl">LIVE QUIZ CHALANGE</h1>
               <p className="mt-2 max-w-2xl text-base font-bold text-white/82">
                 เปิดห้อง แจกโค้ด เล่นเพลง จับเวลา และดูคะแนนผู้เรียนแบบเรียลไทม์
               </p>
@@ -323,8 +323,8 @@ export default function HostPage() {
                 <p className="mt-1 text-4xl font-black tracking-widest">{session.room_code}</p>
               </div>
             ) : (
-              <div className="hidden rounded-2xl border border-white/25 bg-white/14 p-5 text-center font-black backdrop-blur sm:block">
-                <p className="text-5xl">🎯</p>
+              <div className="hidden rounded-2xl border border-white/25 bg-white/14 p-4 text-center font-black backdrop-blur sm:block">
+                <img src="/images/funny-ai-quiz-logo.png" alt="Funny AI Quiz logo" className="mx-auto h-28 w-28 rounded-2xl object-cover shadow-panel" />
                 <p className="mt-2">พร้อมเริ่มกิจกรรม</p>
               </div>
             )}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Gamepad2, Presentation, UsersRound } from "lucide-react";
+import { Presentation, UsersRound } from "lucide-react";
 
 export default function Home() {
   return (
@@ -7,9 +7,7 @@ export default function Home() {
       <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-6 sm:px-8">
         <nav className="flex items-center justify-between py-3">
           <div className="flex items-center gap-2 text-xl font-black">
-            <span className="grid h-10 w-10 place-items-center rounded-md bg-[#4c1d95] text-white">
-              <Gamepad2 size={22} />
-            </span>
+            <img src="/images/funny-ai-quiz-logo.png" alt="Funny AI Quiz logo" className="h-12 w-12 rounded-xl object-cover shadow-panel" />
             Quezz Live
           </div>
           <div className="hidden items-center gap-2 text-sm font-semibold text-ink/65 sm:flex">
