@@ -18,9 +18,9 @@ export default function Home() {
 
         <div className="grid flex-1 items-center gap-10 py-8 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
-            <p className="mb-4 text-sm font-bold uppercase tracking-widest text-coral">ควิซสดในห้องเรียน</p>
+            <p className="mb-4 text-sm font-bold uppercase tracking-widest text-coral">Live Quiz ในห้องเรียน</p>
             <h1 className="max-w-3xl text-5xl font-black leading-[0.98] text-ink sm:text-7xl">
-              เล่นควิซ seminar แบบสนุก ๆ ผ่าน browser
+              เล่น Live Quiz seminar แบบสนุก ๆ ผ่าน browser
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-ink/70">
               สร้างห้อง แจกโค้ดให้นักเรียนตอบจากมือถือ แล้วดูผลคะแนนสดพร้อมเพลงและตัวจับเวลา
@@ -31,13 +31,13 @@ export default function Home() {
                 className="inline-flex h-14 items-center justify-center gap-2 rounded-md bg-[#4c1d95] px-6 font-bold text-white shadow-panel transition hover:-translate-y-0.5"
               >
                 <Presentation size={20} />
-                เปิดห้องควิซ
+                เปิดห้อง Live Quiz
               </Link>
               <Link
                 href="/join"
                 className="inline-flex h-14 items-center justify-center rounded-md border-2 border-ink px-6 font-bold text-ink transition hover:-translate-y-0.5"
               >
-                เข้าร่วมด้วยรหัส
+                เข้า Live Quiz ด้วยรหัส
               </Link>
             </div>
           </div>

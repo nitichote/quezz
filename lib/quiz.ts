@@ -1,4 +1,4 @@
-import { Question } from "@/lib/types";
+import { Answer, GameSession, Question } from "@/lib/types";
 
 export const starterQuestions: Question[] = [
   {
@@ -114,4 +114,102 @@ export function emptyQuestion(): Question {
     choices: [{ text: "" }, { text: "" }, { text: "" }, { text: "" }],
     correctIndex: 0,
   };
+}
+
+export function calculateAnswerScore(answer: Answer | undefined, question: Question | undefined, session: GameSession | null) {
+  if (!answer || !question || !session?.question_started_at || answer.choice_index !== question.correctIndex) {
+    return 0;
+  }
+
+  const startedAt = new Date(session.question_started_at).getTime();
+  const answeredAt = answer.created_at ? new Date(answer.created_at).getTime() : startedAt + session.question_duration * 1000;
+  const elapsedMs = Math.max(0, answeredAt - startedAt);
+  const durationMs = Math.max(1000, session.question_duration * 1000);
+  const remainingRatio = Math.max(0, Math.min(1, (durationMs - elapsedMs) / durationMs));
+
+  return Math.round(500 + 500 * remainingRatio);
+}
+
+export function parseQuestionsCsv(csvText: string) {
+  const rows = parseCsvRows(csvText.trim());
+  if (rows.length < 2) {
+    throw new Error("CSV ต้องมี header และคำถามอย่างน้อย 1 แถว");
+  }
+
+  const headers = rows[0].map((header) => header.trim());
+  const required = ["Question", "Answer 1", "Answer 2", "Answer 3", "Answer 4", "Correct answer"];
+  const missing = required.filter((header) => !headers.includes(header));
+  if (missing.length) {
+    throw new Error(`CSV ขาดคอลัมน์: ${missing.join(", ")}`);
+  }
+
+  const indexOf = (header: string) => headers.indexOf(header);
+  const questions = rows.slice(1).filter((row) => row.some((cell) => cell.trim())).map((row, rowIndex) => {
+    const prompt = row[indexOf("Question")]?.trim() ?? "";
+    const choices = [1, 2, 3, 4].map((answerNumber) => ({
+      text: row[indexOf(`Answer ${answerNumber}`)]?.trim() ?? "",
+    }));
+    const correctAnswer = Number(row[indexOf("Correct answer")]?.trim());
+
+    if (!prompt || choices.some((choice) => !choice.text) || !Number.isInteger(correctAnswer) || correctAnswer < 1 || correctAnswer > 4) {
+      throw new Error(`ข้อมูลคำถามแถวที่ ${rowIndex + 2} ไม่สมบูรณ์`);
+    }
+
+    return {
+      prompt,
+      choices,
+      correctIndex: correctAnswer - 1,
+      imageUrl: headers.includes("Image URL") ? row[indexOf("Image URL")]?.trim() || undefined : undefined,
+    };
+  });
+
+  if (!questions.length) {
+    throw new Error("ไม่พบคำถามใน CSV");
+  }
+
+  return questions;
+}
+
+function parseCsvRows(csvText: string) {
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentCell = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < csvText.length; index += 1) {
+    const char = csvText[index];
+    const nextChar = csvText[index + 1];
+
+    if (char === '"' && inQuotes && nextChar === '"') {
+      currentCell += '"';
+      index += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      currentRow.push(currentCell);
+      currentCell = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && nextChar === "\n") index += 1;
+      currentRow.push(currentCell);
+      rows.push(currentRow);
+      currentRow = [];
+      currentCell = "";
+      continue;
+    }
+
+    currentCell += char;
+  }
+
+  currentRow.push(currentCell);
+  rows.push(currentRow);
+  return rows;
 }

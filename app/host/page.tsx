@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, Copy, Crown, Eye, Medal, Plus, Radio, RotateCcw, Timer, Trash2, Trophy, Volume2, VolumeX } from "lucide-react";
 import { SetupWarning } from "@/components/SetupWarning";
 import { getErrorMessage } from "@/lib/errors";
-import { emptyQuestion, makeRoomCode, starterQuestions } from "@/lib/quiz";
+import { calculateAnswerScore, emptyQuestion, makeRoomCode, parseQuestionsCsv, starterQuestions } from "@/lib/quiz";
 import { announceWinner, playCountdownMusic, playSound, startLobbyMusic, stopAllMusic, stopCountdownMusic, stopLobbyMusic } from "@/lib/sound";
 import { hasSupabaseConfig, requireSupabase } from "@/lib/supabase";
 import { Answer, GameSession, Player, Question, Quiz } from "@/lib/types";
@@ -47,7 +47,7 @@ export default function HostPage() {
     return players
       .map((player) => {
         const playerAnswers = answers.filter((answer) => answer.player_id === player.id);
-        const score = playerAnswers.filter((answer) => questions[answer.question_index]?.correctIndex === answer.choice_index).length;
+        const score = playerAnswers.reduce((total, answer) => total + calculateAnswerScore(answer, questions[answer.question_index], session), 0);
         return { ...player, score, answeredCount: playerAnswers.length };
       })
       .sort((a, b) => b.score - a.score || b.answeredCount - a.answeredCount || a.name.localeCompare(b.name));
@@ -145,7 +145,7 @@ export default function HostPage() {
       }
 
       const countdownKey = `${session.id}-${session.current_question}-${session.question_started_at}`;
-      if (musicOn && nextTimeLeft <= 10 && nextTimeLeft > 0 && countdownSoundRef.current !== countdownKey) {
+      if (musicOn && nextTimeLeft > 0 && countdownSoundRef.current !== countdownKey) {
         countdownSoundRef.current = countdownKey;
         void playCountdownMusic(session.current_question, countdownKey);
       }
@@ -212,6 +212,38 @@ export default function HostPage() {
           : question,
       ),
     );
+  }
+
+  async function importQuestionsCsv(file: File | null) {
+    if (!file) return;
+
+    try {
+      const csvText = await file.text();
+      const importedQuestions = parseQuestionsCsv(csvText);
+      setQuestions(importedQuestions);
+      setQuestionLimit(importedQuestions.length);
+      setError("");
+    } catch (err) {
+      setError(getErrorMessage(err, "นำเข้า CSV ไม่สำเร็จ"));
+    }
+  }
+
+  async function uploadQuestionImage(questionIndex: number, file: File | null) {
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("กรุณาเลือกไฟล์รูปภาพเท่านั้น");
+      return;
+    }
+
+    if (file.size > 700_000) {
+      setError("รูปภาพใหญ่เกินไป กรุณาใช้รูปไม่เกิน 700KB เพื่อให้เล่นบนมือถือได้ลื่น");
+      return;
+    }
+
+    const imageUrl = await readFileAsDataUrl(file);
+    updateQuestion(questionIndex, { imageUrl });
+    setError("");
   }
 
   async function createSession() {
@@ -420,6 +452,18 @@ export default function HostPage() {
               <p className="mt-3 rounded-xl bg-[#ede9fe] px-3 py-2 text-sm font-bold text-[#6d28d9]">
                 ตอนสร้างห้อง ระบบจะใช้คำถาม {questionLimit} ข้อแรก และใช้เวลา {timerSeconds} วินาทีเท่ากันทุกข้อ
               </p>
+              <div className="mt-4 rounded-2xl border border-[#7c3aed]/10 bg-white/75 p-4">
+                <p className="font-black text-[#4c1d95]">นำเข้าคำถามจาก CSV</p>
+                <p className="mt-1 text-sm font-bold text-ink/60">
+                  รูปแบบ: Question, Answer 1, Answer 2, Answer 3, Answer 4, Correct answer และ Image URL (ถ้ามี)
+                </p>
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={(event) => void importQuestionsCsv(event.target.files?.[0] ?? null)}
+                  className="mt-3 block w-full text-sm font-bold file:mr-4 file:rounded-xl file:border-0 file:bg-[#4c1d95] file:px-4 file:py-2 file:font-black file:text-white"
+                />
+              </div>
             </div>
 
             <div className="grid gap-4">
@@ -446,6 +490,40 @@ export default function HostPage() {
                     onChange={(event) => updateQuestion(questionIndex, { prompt: event.target.value })}
                     className="mt-3 min-h-20 w-full rounded-md border-2 border-ink/15 p-3 font-bold outline-none focus:border-ink"
                   />
+                  <div className="mt-3 rounded-2xl border border-[#7c3aed]/10 bg-white/70 p-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="font-black text-[#4c1d95]">รูปประกอบคำถาม</p>
+                        <p className="text-xs font-bold text-ink/55">รองรับ JPG/PNG/WebP ขนาดไม่เกิน 700KB</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <label className="thai-button cursor-pointer rounded-xl bg-[#4c1d95] px-4 py-2 text-sm font-black text-white">
+                          อัปโหลดรูป
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) => void uploadQuestionImage(questionIndex, event.target.files?.[0] ?? null)}
+                            className="hidden"
+                          />
+                        </label>
+                        {question.imageUrl ? (
+                          <button
+                            onClick={() => updateQuestion(questionIndex, { imageUrl: undefined })}
+                            className="thai-button rounded-xl border-2 border-coral bg-white px-4 py-2 text-sm font-black text-coral"
+                          >
+                            ลบรูป
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                    {question.imageUrl ? (
+                      <img
+                        src={question.imageUrl}
+                        alt={`รูปประกอบคำถามที่ ${questionIndex + 1}`}
+                        className="mt-3 max-h-56 w-full rounded-xl object-contain"
+                      />
+                    ) : null}
+                  </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     {question.choices.map((choice, choiceIndex) => (
                       <div key={choiceIndex} className="flex gap-2">
@@ -602,7 +680,14 @@ export default function HostPage() {
             </aside>
 
             {session.status === "ended" ? (
-              <WinnerPodium leaderboard={leaderboard.slice(0, 3)} totalQuestions={questions.length} />
+              <div className="grid gap-5">
+                <WinnerPodium
+                  leaderboard={leaderboard.slice(0, 3)}
+                  totalQuestions={questions.length}
+                  onAnnounce={() => void announceWinner(leaderboard[0]?.name)}
+                />
+                <ScoreSummary players={leaderboard} answers={answers} questions={questions} session={session} />
+              </div>
             ) : (
             <div className="thai-panel rounded-2xl p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -611,6 +696,13 @@ export default function HostPage() {
                     {quiz?.title} · คำถามที่ {session.current_question + 1} จาก {questions.length}
                   </p>
                   <h2 className="mt-4 text-3xl font-black leading-tight sm:text-4xl">{currentQuestion?.prompt}</h2>
+                  {currentQuestion?.imageUrl ? (
+                    <img
+                      src={currentQuestion.imageUrl}
+                      alt="รูปประกอบคำถาม"
+                      className="mt-4 max-h-[360px] w-full rounded-2xl object-contain shadow-panel"
+                    />
+                  ) : null}
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -662,6 +754,15 @@ export default function HostPage() {
   );
 }
 
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("อ่านไฟล์รูปภาพไม่สำเร็จ"));
+    reader.readAsDataURL(file);
+  });
+}
+
 function LiveLeaderboard({
   leaderboard,
   totalQuestions,
@@ -676,7 +777,7 @@ function LiveLeaderboard({
           <Trophy size={22} />
           ตารางคะแนนสด
         </div>
-        <p className="text-sm font-bold text-white/80">เรียงจากคะแนนสูงสุดไปต่ำสุด</p>
+        <p className="text-sm font-bold text-white/80">ตอบถูกเร็วได้สูงสุด 1,000 คะแนนต่อข้อ</p>
       </div>
 
       <div className="max-h-[360px] overflow-auto">
@@ -732,9 +833,11 @@ function LiveLeaderboard({
 function WinnerPodium({
   leaderboard,
   totalQuestions,
+  onAnnounce,
 }: {
   leaderboard: Array<Player & { score: number }>;
   totalQuestions: number;
+  onAnnounce: () => void;
 }) {
   const first = leaderboard[0];
   const second = leaderboard[1];
@@ -756,8 +859,87 @@ function WinnerPodium({
 
       <div className="relative z-10 mx-auto mt-6 max-w-xl rounded-lg bg-white/85 p-4 text-center text-ink backdrop-blur">
         <Medal className="mx-auto text-[#4c1d95]" size={30} />
-        <p className="mt-2 font-black">คะแนนเต็ม {totalQuestions} ข้อ</p>
+        <p className="mt-2 font-black">คะแนนเต็ม {totalQuestions * 1000} คะแนน</p>
         <p className="text-sm font-bold text-ink/60">ขอบคุณทุกคนที่ร่วมเล่นควิซ</p>
+        <button
+          onClick={onAnnounce}
+          className="thai-button mt-4 rounded-xl bg-[#4c1d95] px-5 py-3 font-black text-white"
+        >
+          ประกาศผู้ชนะอีกครั้ง
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ScoreSummary({
+  players,
+  answers,
+  questions,
+  session,
+}: {
+  players: Array<Player & { score: number; answeredCount: number }>;
+  answers: Answer[];
+  questions: Question[];
+  session: GameSession | null;
+}) {
+  return (
+    <div className="thai-panel overflow-hidden rounded-2xl">
+      <div className="bg-gradient-to-r from-[#0f766e] to-[#4c1d95] px-5 py-4 text-white">
+        <h3 className="text-2xl font-black">สรุปคะแนนรายข้อ</h3>
+        <p className="text-sm font-bold text-white/75">ตอบถูกเร็วได้ 500-1,000 คะแนน, ผิดหรือไม่ตอบได้ 0</p>
+      </div>
+      <div className="overflow-auto">
+        <table className="w-full min-w-[720px] border-collapse text-left">
+          <thead className="bg-[#f5f3ff] text-sm text-[#6d28d9]">
+            <tr>
+              <th className="sticky left-0 z-10 bg-[#f5f3ff] px-4 py-3 font-black">ผู้เล่น</th>
+              {questions.map((_, index) => (
+                <th key={index} className="px-3 py-3 text-center font-black">ข้อ {index + 1}</th>
+              ))}
+              <th className="px-4 py-3 text-center font-black">รวม</th>
+            </tr>
+          </thead>
+          <tbody>
+            {players.length ? (
+              players.map((player) => (
+                <tr key={player.id} className="border-t border-[#ede9fe]">
+                  <td className="sticky left-0 z-10 max-w-48 truncate bg-white px-4 py-3 font-black">{player.name}</td>
+                  {questions.map((question, questionIndex) => {
+                    const answer = answers.find((item) => item.player_id === player.id && item.question_index === questionIndex);
+                    const answerScore = calculateAnswerScore(answer, question, session);
+                    return (
+                      <td key={questionIndex} className="px-3 py-3 text-center">
+                        <span
+                          className={`inline-flex min-w-12 justify-center rounded-full px-3 py-2 text-sm font-black ${
+                            !answer
+                              ? "bg-slate-100 text-slate-400"
+                              : answerScore > 0
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-rose-100 text-rose-700"
+                          }`}
+                        >
+                          {!answer ? "-" : answerScore > 0 ? answerScore : "✕"}
+                        </span>
+                      </td>
+                    );
+                  })}
+                  <td className="px-4 py-3 text-center">
+                    <span className="inline-flex min-w-14 justify-center rounded-full bg-[#4c1d95] px-4 py-2 font-black text-white">
+                      {player.score}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={questions.length + 2} className="px-5 py-6 text-center font-bold text-ink/55">
+                  ยังไม่มีผู้เล่น
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

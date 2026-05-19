@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Check, LogIn, Timer, Trophy } from "lucide-react";
 import { SetupWarning } from "@/components/SetupWarning";
 import { getErrorMessage } from "@/lib/errors";
+import { calculateAnswerScore } from "@/lib/quiz";
 import { playCountdownMusic, playSound, stopAllMusic, stopCountdownMusic } from "@/lib/sound";
 import { hasSupabaseConfig, requireSupabase } from "@/lib/supabase";
 import { Answer, GameSession, Player, Quiz } from "@/lib/types";
@@ -51,8 +52,8 @@ function JoinExperience() {
   );
   const score = useMemo(() => {
     if (!quiz) return 0;
-    return answers.filter((answer) => quiz.questions[answer.question_index]?.correctIndex === answer.choice_index).length;
-  }, [answers, quiz]);
+    return answers.reduce((total, answer) => total + calculateAnswerScore(answer, quiz.questions[answer.question_index], session), 0);
+  }, [answers, quiz, session]);
   const timerProgress =
     session?.status === "question" ? Math.max(0, Math.min(100, (timeLeft / Math.max(1, session.question_duration)) * 100)) : 0;
 
@@ -125,7 +126,7 @@ function JoinExperience() {
       setTimeLeft(nextTimeLeft);
 
       const countdownKey = `${session.id}-${session.current_question}-${session.question_started_at}`;
-      if (nextTimeLeft <= 10 && nextTimeLeft > 0 && countdownSoundRef.current !== countdownKey) {
+      if (nextTimeLeft > 0 && countdownSoundRef.current !== countdownKey) {
         countdownSoundRef.current = countdownKey;
         void playCountdownMusic(session.current_question, countdownKey);
       }
@@ -289,7 +290,7 @@ function JoinExperience() {
               <div className="rounded-md bg-ink px-4 py-3 text-white">
                 <p className="text-xs font-bold uppercase text-white/50">คะแนน</p>
                 <p className="text-2xl font-black">
-                  {score}/{quiz.questions.length}
+                  {score}
                 </p>
               </div>
             </div>
@@ -308,7 +309,7 @@ function JoinExperience() {
                 </div>
                 <p className="mt-5 text-3xl font-black text-[#4c1d95] drop-shadow-sm">จบเกมแล้ว</p>
                 <p className="mt-2 inline-flex rounded-md bg-white/90 px-4 py-2 text-xl font-black text-ink">
-                  คะแนนของคุณ {score}/{quiz.questions.length}
+                  คะแนนของคุณ {score}/{quiz.questions.length * 1000}
                 </p>
               </div>
             ) : null}
@@ -330,6 +331,13 @@ function JoinExperience() {
                   </div>
                 ) : null}
                 <h2 className="mt-2 text-3xl font-black">{currentQuestion.prompt}</h2>
+                {currentQuestion.imageUrl ? (
+                  <img
+                    src={currentQuestion.imageUrl}
+                    alt="รูปประกอบคำถาม"
+                    className="mt-4 max-h-72 w-full rounded-2xl object-contain shadow-panel"
+                  />
+                ) : null}
                 <div className="mt-6 grid gap-3">
                   {currentQuestion.choices.map((choice, index) => {
                     const isSelected = currentAnswer?.choice_index === index;

@@ -118,12 +118,16 @@ export async function announceWinner(name?: string) {
   window.speechSynthesis.cancel();
   const message = `ขอเสียงปรบมือดังๆ ผู้ชนะลำดับที่หนึ่งคือ ${name}`;
   const utterance = new SpeechSynthesisUtterance(message);
-  const voices = window.speechSynthesis.getVoices();
+  let voices = window.speechSynthesis.getVoices();
+  if (voices.length === 0) {
+    await new Promise((resolve) => window.setTimeout(resolve, 250));
+    voices = window.speechSynthesis.getVoices();
+  }
   const thaiVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith("th"));
   if (thaiVoice) utterance.voice = thaiVoice;
   utterance.lang = "th-TH";
-  utterance.rate = 0.92;
-  utterance.pitch = 1.18;
+  utterance.rate = 0.88;
+  utterance.pitch = 1.22;
   utterance.volume = 1;
   window.speechSynthesis.speak(utterance);
 }

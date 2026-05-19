@@ -6,6 +6,7 @@ export type Question = {
   prompt: string;
   choices: Choice[];
   correctIndex: number;
+  imageUrl?: string;
 };
 
 export type Quiz = {
