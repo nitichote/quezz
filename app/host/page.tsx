@@ -46,12 +46,11 @@ export default function HostPage() {
   const leaderboard = useMemo(() => {
     return players
       .map((player) => {
-        const score = answers.filter(
-          (answer) => answer.player_id === player.id && questions[answer.question_index]?.correctIndex === answer.choice_index,
-        ).length;
-        return { ...player, score };
+        const playerAnswers = answers.filter((answer) => answer.player_id === player.id);
+        const score = playerAnswers.filter((answer) => questions[answer.question_index]?.correctIndex === answer.choice_index).length;
+        return { ...player, score, answeredCount: playerAnswers.length };
       })
-      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+      .sort((a, b) => b.score - a.score || b.answeredCount - a.answeredCount || a.name.localeCompare(b.name));
   }, [answers, players, questions]);
   const timerProgress =
     session?.status === "question" ? Math.max(0, Math.min(100, (timeLeft / Math.max(1, session.question_duration)) * 100)) : 0;
@@ -647,6 +646,7 @@ export default function HostPage() {
                   );
                 })}
               </div>
+              <LiveLeaderboard leaderboard={leaderboard} totalQuestions={questions.length} />
               <button
                 onClick={() => setStatus("ended")}
                 className="thai-button mt-6 h-11 border-2 border-coral bg-white px-4 font-black text-coral"
@@ -659,6 +659,73 @@ export default function HostPage() {
         )}
       </div>
     </main>
+  );
+}
+
+function LiveLeaderboard({
+  leaderboard,
+  totalQuestions,
+}: {
+  leaderboard: Array<Player & { score: number; answeredCount: number }>;
+  totalQuestions: number;
+}) {
+  return (
+    <div className="mt-6 overflow-hidden rounded-2xl border border-[#7c3aed]/12 bg-white/90 shadow-panel">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-[#4c1d95] to-[#ec4899] px-5 py-4 text-white">
+        <div className="flex items-center gap-2 font-black">
+          <Trophy size={22} />
+          ตารางคะแนนสด
+        </div>
+        <p className="text-sm font-bold text-white/80">เรียงจากคะแนนสูงสุดไปต่ำสุด</p>
+      </div>
+
+      <div className="max-h-[360px] overflow-auto">
+        {leaderboard.length ? (
+          <table className="w-full border-collapse text-left">
+            <thead className="sticky top-0 bg-[#f5f3ff] text-sm text-[#6d28d9]">
+              <tr>
+                <th className="w-20 px-4 py-3 text-center font-black">อันดับ</th>
+                <th className="px-4 py-3 font-black">ผู้เล่น</th>
+                <th className="px-4 py-3 text-center font-black">ตอบแล้ว</th>
+                <th className="px-4 py-3 text-center font-black">คะแนน</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leaderboard.map((player, index) => (
+                <tr key={player.id} className="border-t border-[#ede9fe]">
+                  <td className="px-4 py-3 text-center">
+                    <span
+                      className={`mx-auto grid h-10 w-10 place-items-center rounded-full font-black ${
+                        index === 0
+                          ? "bg-yellow-300 text-[#713f12]"
+                          : index === 1
+                            ? "bg-slate-200 text-slate-700"
+                            : index === 2
+                              ? "bg-orange-300 text-[#7c2d12]"
+                              : "bg-[#ede9fe] text-[#6d28d9]"
+                      }`}
+                    >
+                      {index + 1}
+                    </span>
+                  </td>
+                  <td className="max-w-0 truncate px-4 py-3 text-lg font-black">{player.name}</td>
+                  <td className="px-4 py-3 text-center font-bold text-ink/65">
+                    {player.answeredCount}/{totalQuestions}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className="inline-flex min-w-14 justify-center rounded-full bg-[#4c1d95] px-4 py-2 text-lg font-black text-white">
+                      {player.score}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="px-5 py-6 text-center font-bold text-ink/55">ยังไม่มีผู้เล่นเข้าร่วม</p>
+        )}
+      </div>
+    </div>
   );
 }
 
