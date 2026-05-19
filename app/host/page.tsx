@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, Copy, Eye, Plus, Radio, RotateCcw, Timer, Trash2, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Check, Copy, Crown, Eye, Medal, Plus, Radio, RotateCcw, Timer, Trash2, Volume2, VolumeX } from "lucide-react";
 import { SetupWarning } from "@/components/SetupWarning";
 import { getErrorMessage } from "@/lib/errors";
 import { emptyQuestion, makeRoomCode, starterQuestions } from "@/lib/quiz";
@@ -13,7 +13,7 @@ import { Answer, GameSession, Player, Question, Quiz } from "@/lib/types";
 const swatches = ["bg-coral", "bg-sky", "bg-gold", "bg-mint"];
 
 export default function HostPage() {
-  const [title, setTitle] = useState("Seminar Quiz");
+  const [title, setTitle] = useState("AI Seminar Quiz");
   const [questions, setQuestions] = useState<Question[]>(starterQuestions);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [session, setSession] = useState<GameSession | null>(null);
@@ -41,6 +41,17 @@ export default function HostPage() {
   const correctCount = currentQuestion
     ? currentAnswers.filter((answer) => answer.choice_index === currentQuestion.correctIndex).length
     : 0;
+  const leaderboard = useMemo(() => {
+    return players
+      .map((player) => {
+        const score = answers.filter(
+          (answer) => answer.player_id === player.id && questions[answer.question_index]?.correctIndex === answer.choice_index,
+        ).length;
+        return { ...player, score };
+      })
+      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+      .slice(0, 3);
+  }, [answers, players, questions]);
   const timerProgress =
     session?.status === "question" ? Math.max(0, Math.min(100, (timeLeft / Math.max(1, session.question_duration)) * 100)) : 0;
 
@@ -287,20 +298,20 @@ export default function HostPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f5ef] px-4 py-5 text-ink sm:px-6">
+    <main className="soft-grid min-h-screen px-4 py-5 text-ink sm:px-6">
       <div className="mx-auto max-w-7xl">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-ink/65 hover:text-ink">
           <ArrowLeft size={18} />
-          Home
+          หน้าแรก
         </Link>
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-bold uppercase tracking-widest text-coral">Host console</p>
-            <h1 className="text-4xl font-black sm:text-5xl">Run your live quiz</h1>
+            <p className="text-sm font-bold uppercase tracking-widest text-coral">หน้าผู้จัดกิจกรรม</p>
+            <h1 className="text-4xl font-black sm:text-5xl">เริ่มเกมควิซสด</h1>
           </div>
           {session ? (
-            <div className="rounded-md bg-ink px-5 py-3 text-white">
-              <p className="text-xs font-bold uppercase text-white/50">Room code</p>
+            <div className="rounded-md bg-[#4c1d95] px-5 py-3 text-white shadow-panel">
+              <p className="text-xs font-bold uppercase text-white/55">รหัสห้อง</p>
               <p className="text-3xl font-black tracking-widest">{session.room_code}</p>
             </div>
           ) : null}
@@ -313,8 +324,8 @@ export default function HostPage() {
 
         {!session ? (
           <section className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-            <div className="rounded-md bg-white p-5 shadow-panel">
-              <label className="text-sm font-black">Quiz title</label>
+            <div className="cute-panel rounded-lg p-5">
+              <label className="text-sm font-black">ชื่อควิซ</label>
               <input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
@@ -326,11 +337,11 @@ export default function HostPage() {
                 className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 font-black text-white"
               >
                 <Radio size={19} />
-                Create live room
+                สร้างห้องเล่นสด
               </button>
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <label className="text-sm font-black">
-                  Seconds/question
+                  วินาทีต่อข้อ
                   <input
                     type="number"
                     min={5}
@@ -341,7 +352,7 @@ export default function HostPage() {
                   />
                 </label>
                 <label className="text-sm font-black">
-                  Results seconds
+                  เวลาโชว์ผล
                   <input
                     type="number"
                     min={3}
@@ -359,15 +370,15 @@ export default function HostPage() {
                   onChange={(event) => setAutoNext(event.target.checked)}
                   className="h-5 w-5 accent-ink"
                 />
-                Auto next question
+                ไปข้อถัดไปอัตโนมัติ
               </label>
             </div>
 
             <div className="grid gap-4">
               {questions.map((question, questionIndex) => (
-                <div key={questionIndex} className="rounded-md bg-white p-5 shadow-panel">
+                <div key={questionIndex} className="cute-panel rounded-lg p-5">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="font-black">Question {questionIndex + 1}</p>
+                    <p className="font-black">คำถามที่ {questionIndex + 1}</p>
                     <button
                       aria-label="Remove question"
                       onClick={() => setQuestions((items) => items.filter((_, index) => index !== questionIndex))}
@@ -406,17 +417,17 @@ export default function HostPage() {
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-md border-2 border-ink font-black"
               >
                 <Plus size={19} />
-                Add question
+                เพิ่มคำถาม
               </button>
             </div>
           </section>
         ) : (
           <section className="grid gap-5 lg:grid-cols-[0.75fr_1.25fr]">
-            <aside className="rounded-md bg-white p-5 shadow-panel">
+            <aside className="cute-panel rounded-lg p-5">
               <div className="grid grid-cols-2 gap-3">
                 <button onClick={copyJoinLink} className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-ink font-black text-white">
                   <Copy size={18} />
-                  Copy link
+                  คัดลอกลิงก์
                 </button>
                 <button
                   onClick={() => askQuestion()}
@@ -424,7 +435,7 @@ export default function HostPage() {
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-mint font-black text-ink"
                 >
                   <Radio size={18} />
-                  Ask
+                  เริ่มข้อ
                 </button>
                 <button
                   onClick={() => setStatus("results")}
@@ -432,7 +443,7 @@ export default function HostPage() {
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-gold font-black text-ink"
                 >
                   <Eye size={18} />
-                  Results
+                  เฉลย
                 </button>
                 <button
                   onClick={() => setStatus("lobby")}
@@ -440,21 +451,21 @@ export default function HostPage() {
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-md border-2 border-ink font-black"
                 >
                   <RotateCcw size={18} />
-                  Lobby
+                  ห้องรอ
                 </button>
                 <button
                   onClick={toggleMusic}
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-md border-2 border-ink font-black"
                 >
                   {musicOn ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                  Music
+                  เพลง
                 </button>
               </div>
               <div className="mt-4 rounded-md border-2 border-ink/10 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 font-black">
                     <Timer size={18} />
-                    Timer
+                    เวลา
                   </div>
                   <span className="text-3xl font-black">{session.status === "question" ? timeLeft : session.question_duration}s</span>
                 </div>
@@ -468,40 +479,43 @@ export default function HostPage() {
                     onChange={(event) => setAutoNext(event.target.checked)}
                     className="h-5 w-5 accent-ink"
                   />
-                  Auto show results and continue
+                  เฉลยและไปข้อต่อไปอัตโนมัติ
                 </label>
               </div>
               <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-md bg-ink p-3 text-white">
                   <p className="text-2xl font-black">{players.length}</p>
-                  <p className="text-xs font-bold text-white/55">joined</p>
+                  <p className="text-xs font-bold text-white/55">เข้าร่วม</p>
                 </div>
                 <div className="rounded-md bg-ink p-3 text-white">
                   <p className="text-2xl font-black">{uniqueAnswered}</p>
-                  <p className="text-xs font-bold text-white/55">answered</p>
+                  <p className="text-xs font-bold text-white/55">ตอบแล้ว</p>
                 </div>
                 <div className="rounded-md bg-ink p-3 text-white">
                   <p className="text-2xl font-black">{correctCount}</p>
-                  <p className="text-xs font-bold text-white/55">correct</p>
+                  <p className="text-xs font-bold text-white/55">ถูก</p>
                 </div>
               </div>
               <div className="mt-5">
-                <p className="font-black">Students</p>
+                <p className="font-black">ผู้เล่น</p>
                 <div className="mt-2 max-h-64 overflow-auto rounded-md border-2 border-ink/10">
                   {players.length ? (
                     players.map((player) => <div key={player.id} className="border-b border-ink/10 px-3 py-2 font-bold">{player.name}</div>)
                   ) : (
-                    <p className="px-3 py-4 text-sm font-bold text-ink/50">Waiting for students...</p>
+                    <p className="px-3 py-4 text-sm font-bold text-ink/50">กำลังรอผู้เล่น...</p>
                   )}
                 </div>
               </div>
             </aside>
 
-            <div className="rounded-md bg-white p-5 shadow-panel">
+            {session.status === "ended" ? (
+              <WinnerPodium leaderboard={leaderboard} totalQuestions={questions.length} />
+            ) : (
+            <div className="cute-panel rounded-lg p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-bold text-ink/50">
-                    {quiz?.title} · Question {session.current_question + 1} of {questions.length}
+                    {quiz?.title} · คำถามที่ {session.current_question + 1} จาก {questions.length}
                   </p>
                   <h2 className="mt-2 text-3xl font-black">{currentQuestion?.prompt}</h2>
                 </div>
@@ -511,14 +525,14 @@ export default function HostPage() {
                     onClick={() => askQuestion(session.current_question - 1)}
                     className="h-11 rounded-md border-2 border-ink px-4 font-black"
                   >
-                    Prev
+                    ก่อนหน้า
                   </button>
                   <button
                     disabled={busy || session.current_question >= questions.length - 1}
                     onClick={() => askQuestion(session.current_question + 1)}
                     className="h-11 rounded-md bg-ink px-4 font-black text-white"
                   >
-                    Next
+                    ถัดไป
                   </button>
                 </div>
               </div>
@@ -543,12 +557,79 @@ export default function HostPage() {
                 onClick={() => setStatus("ended")}
                 className="mt-6 h-11 rounded-md border-2 border-coral px-4 font-black text-coral"
               >
-                End quiz
+                จบเกม
               </button>
             </div>
+            )}
           </section>
         )}
       </div>
     </main>
+  );
+}
+
+function WinnerPodium({
+  leaderboard,
+  totalQuestions,
+}: {
+  leaderboard: Array<Player & { score: number }>;
+  totalQuestions: number;
+}) {
+  const first = leaderboard[0];
+  const second = leaderboard[1];
+  const third = leaderboard[2];
+
+  return (
+    <div className="winner-bg relative min-h-[620px] overflow-hidden rounded-xl p-5 text-white shadow-panel sm:p-8">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.7),transparent_26%)]" />
+      <div className="relative z-10 text-center">
+        <p className="text-sm font-black uppercase tracking-[0.28em] text-white/85">ผลการแข่งขัน</p>
+        <h2 className="mt-2 text-5xl font-black text-[#4c1d95] drop-shadow-sm sm:text-7xl">ผู้ชนะวันนี้</h2>
+      </div>
+
+      <div className="relative z-10 mx-auto mt-12 grid max-w-4xl grid-cols-3 items-end gap-3 sm:gap-5">
+        <PodiumSpot player={second} place={2} height="h-44 sm:h-56" color="from-slate-300 to-slate-500" />
+        <PodiumSpot player={first} place={1} height="h-60 sm:h-80" color="from-yellow-300 to-orange-500" crown />
+        <PodiumSpot player={third} place={3} height="h-36 sm:h-48" color="from-orange-400 to-rose-600" />
+      </div>
+
+      <div className="relative z-10 mx-auto mt-6 max-w-xl rounded-lg bg-white/85 p-4 text-center text-ink backdrop-blur">
+        <Medal className="mx-auto text-[#4c1d95]" size={30} />
+        <p className="mt-2 font-black">คะแนนเต็ม {totalQuestions} ข้อ</p>
+        <p className="text-sm font-bold text-ink/60">ขอบคุณทุกคนที่ร่วมเล่นควิซ</p>
+      </div>
+    </div>
+  );
+}
+
+function PodiumSpot({
+  player,
+  place,
+  height,
+  color,
+  crown = false,
+}: {
+  player?: Player & { score: number };
+  place: number;
+  height: string;
+  color: string;
+  crown?: boolean;
+}) {
+  const face = place === 1 ? "🤩" : place === 2 ? "😊" : "😎";
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="mb-2 grid h-20 w-20 place-items-center rounded-full bg-white text-4xl shadow-panel sm:h-24 sm:w-24">
+        {face}
+      </div>
+      {crown ? <Crown className="-mt-28 mb-20 text-yellow-300 drop-shadow" size={42} /> : null}
+      <div className={`${height} flex w-full flex-col items-center justify-start rounded-t-xl bg-gradient-to-b ${color} px-2 pt-5 shadow-2xl`}>
+        <div className="grid h-14 w-14 place-items-center rounded-md bg-white/90 text-3xl font-black text-[#4c1d95] shadow">
+          {place}
+        </div>
+        <p className="mt-4 max-w-full truncate text-center text-xl font-black sm:text-2xl">{player?.name ?? "-"}</p>
+        <p className="text-sm font-black text-white/85">{player ? `${player.score} คะแนน` : "รอผล"}</p>
+      </div>
+    </div>
   );
 }

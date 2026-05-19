@@ -22,9 +22,9 @@ export default function JoinPage() {
 
 function JoinShell() {
   return (
-    <main className="min-h-screen bg-[#f7f5ef] px-4 py-5 text-ink sm:px-6">
-      <div className="mx-auto max-w-3xl rounded-md bg-white p-8 shadow-panel">
-        <p className="font-black">Loading join screen...</p>
+    <main className="soft-grid min-h-screen px-4 py-5 text-ink sm:px-6">
+      <div className="cute-panel mx-auto max-w-3xl rounded-lg p-8">
+        <p className="font-black">กำลังโหลด...</p>
       </div>
     </main>
   );
@@ -235,11 +235,11 @@ function JoinExperience() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f5ef] px-4 py-5 text-ink sm:px-6">
+    <main className="soft-grid min-h-screen px-4 py-5 text-ink sm:px-6">
       <div className="mx-auto max-w-3xl">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-ink/65 hover:text-ink">
           <ArrowLeft size={18} />
-          Home
+          หน้าแรก
         </Link>
 
         <div className="mt-6">
@@ -248,12 +248,12 @@ function JoinExperience() {
         {error ? <div className="mb-5 rounded-md border-2 border-coral bg-white p-4 font-bold text-coral">{error}</div> : null}
 
         {!session || !quiz || !player ? (
-          <section className="rounded-md bg-white p-5 shadow-panel sm:p-8">
-            <p className="text-sm font-bold uppercase tracking-widest text-coral">Student view</p>
-            <h1 className="mt-2 text-4xl font-black">Join the quiz</h1>
+          <section className="cute-panel rounded-lg p-5 sm:p-8">
+            <p className="text-sm font-bold uppercase tracking-widest text-coral">หน้าผู้เล่น</p>
+            <h1 className="mt-2 text-4xl font-black">เข้าร่วมควิซ</h1>
             <div className="mt-6 grid gap-4">
               <label className="font-black">
-                Your name
+                ชื่อของคุณ
                 <input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
@@ -261,7 +261,7 @@ function JoinExperience() {
                 />
               </label>
               <label className="font-black">
-                Room code
+                รหัสห้อง
                 <input
                   value={roomCode}
                   onChange={(event) => setRoomCode(event.target.value.toUpperCase())}
@@ -275,19 +275,19 @@ function JoinExperience() {
                 className="inline-flex h-14 items-center justify-center gap-2 rounded-md bg-ink px-5 font-black text-white"
               >
                 <LogIn size={20} />
-                Join
+                เข้าร่วม
               </button>
             </div>
           </section>
         ) : (
-          <section className="rounded-md bg-white p-5 shadow-panel sm:p-8">
+          <section className="cute-panel overflow-hidden rounded-lg p-5 sm:p-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-bold text-ink/50">{quiz.title}</p>
-                <h1 className="text-3xl font-black">Hi, {player.name}</h1>
+                <h1 className="text-3xl font-black">สวัสดี {player.name}</h1>
               </div>
               <div className="rounded-md bg-ink px-4 py-3 text-white">
-                <p className="text-xs font-bold uppercase text-white/50">Score</p>
+                <p className="text-xs font-bold uppercase text-white/50">คะแนน</p>
                 <p className="text-2xl font-black">
                   {score}/{quiz.questions.length}
                 </p>
@@ -295,17 +295,21 @@ function JoinExperience() {
             </div>
 
             {session.status === "lobby" ? (
-              <div className="mt-8 rounded-md bg-ink p-8 text-center text-white">
-                <p className="text-2xl font-black">You are in.</p>
-                <p className="mt-2 text-white/65">Wait for the host to start the next question.</p>
+              <div className="mt-8 rounded-lg bg-[#4c1d95] p-8 text-center text-white shadow-panel">
+                <p className="text-2xl font-black">เข้าห้องเรียบร้อย</p>
+                <p className="mt-2 text-white/70">รอผู้จัดกิจกรรมเริ่มคำถามถัดไป</p>
               </div>
             ) : null}
 
             {session.status === "ended" ? (
-              <div className="mt-8 rounded-md bg-mint p-8 text-center text-ink">
-                <Trophy className="mx-auto" size={42} />
-                <p className="mt-3 text-2xl font-black">Quiz finished</p>
-                <p className="mt-2 font-bold">Final score: {score}</p>
+              <div className="winner-bg mt-8 rounded-xl p-8 text-center text-white shadow-panel">
+                <div className="mx-auto grid h-24 w-24 place-items-center rounded-full bg-white text-[#4c1d95] shadow-panel">
+                  <Trophy size={46} />
+                </div>
+                <p className="mt-5 text-3xl font-black text-[#4c1d95] drop-shadow-sm">จบเกมแล้ว</p>
+                <p className="mt-2 inline-flex rounded-md bg-white/90 px-4 py-2 text-xl font-black text-ink">
+                  คะแนนของคุณ {score}/{quiz.questions.length}
+                </p>
               </div>
             ) : null}
 
@@ -313,11 +317,11 @@ function JoinExperience() {
               <div className="mt-7">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm font-bold text-ink/50">
-                    Question {session.current_question + 1} of {quiz.questions.length}
+                    คำถามที่ {session.current_question + 1} จาก {quiz.questions.length}
                   </p>
                   <div className="flex min-w-32 items-center gap-2 rounded-md bg-ink px-3 py-2 font-black text-white">
                     <Timer size={18} />
-                    {session.status === "question" ? `${timeLeft}s` : "Results"}
+                    {session.status === "question" ? `${timeLeft}s` : "เฉลย"}
                   </div>
                 </div>
                 {session.status === "question" ? (
@@ -347,7 +351,7 @@ function JoinExperience() {
                 </div>
                 {currentAnswer ? (
                   <p className="mt-4 rounded-md bg-ink/5 p-3 text-center font-bold">
-                    {session.status === "results" ? "Answer locked." : "Answer submitted. You can change it until results show."}
+                    {session.status === "results" ? "ล็อกคำตอบแล้ว" : "ส่งคำตอบแล้ว เปลี่ยนได้จนกว่าจะเฉลย"}
                   </p>
                 ) : null}
               </div>

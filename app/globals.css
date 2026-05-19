@@ -12,7 +12,10 @@
 
 body {
   margin: 0;
-  background: #f7f5ef;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(255, 180, 213, 0.45), transparent 28%),
+    radial-gradient(circle at 86% 12%, rgba(102, 224, 208, 0.38), transparent 26%),
+    linear-gradient(135deg, #fff7ed 0%, #f7f3ff 45%, #ecfeff 100%);
   color: #15131a;
 }
 
@@ -25,4 +28,37 @@ textarea {
 button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.cute-panel {
+  border: 2px solid rgba(21, 19, 26, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 20px 60px rgba(98, 84, 130, 0.14);
+  backdrop-filter: blur(14px);
+}
+
+.soft-grid {
+  background-image:
+    linear-gradient(rgba(21, 19, 26, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(21, 19, 26, 0.035) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.pop-card {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.pop-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px rgba(98, 84, 130, 0.16);
+}
+
+.winner-bg {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(76, 29, 149, 0.52)),
+    url("/images/winner-bg.png");
+  background-size: cover;
+  background-position: center;
 }
