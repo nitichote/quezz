@@ -3,6 +3,7 @@
 let audioContext: AudioContext | null = null;
 let lobbyAudio: HTMLAudioElement | null = null;
 let countdownAudio: HTMLAudioElement | null = null;
+let ttsAudio: HTMLAudioElement | null = null;
 let activeCountdownKey = "";
 
 const countdownTracks = ["/music/ingame10second1_2.mp3", "/music/ingame10second2_2.mp3"];
@@ -130,4 +131,32 @@ export async function announceWinner(name?: string) {
   utterance.pitch = 1.22;
   utterance.volume = 1;
   window.speechSynthesis.speak(utterance);
+}
+
+export async function announceWinnerWithGemini(name?: string) {
+  if (!name) return;
+
+  try {
+    await unlockAudio();
+    ttsAudio?.pause();
+    const text = `ขอเสียงปรบมือดังๆ ให้กับผู้ชนะลำดับที่หนึ่งของเกมนี้ ได้แก่ ${name} ยินดีด้วยครับ`;
+    const response = await fetch("/api/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Gemini TTS failed");
+    }
+
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    ttsAudio = new Audio(audioUrl);
+    ttsAudio.volume = 1;
+    ttsAudio.onended = () => URL.revokeObjectURL(audioUrl);
+    await ttsAudio.play();
+  } catch {
+    await announceWinner(name);
+  }
 }

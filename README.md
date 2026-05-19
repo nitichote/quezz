@@ -19,6 +19,7 @@ npm install
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key
+GEMINI_API_KEY=your-gemini-api-key
 ```
 
 5. Start the app.
@@ -31,7 +32,9 @@ Open `http://localhost:3000`.
 
 ## Vercel deploy
 
-Import this project into Vercel, add the same two environment variables in Project Settings, and deploy.
+Import this project into Vercel, add the same environment variables in Project Settings, and deploy.
+
+`GEMINI_API_KEY` is used only by the server API route for Gemini TTS winner announcements. Do not prefix it with `NEXT_PUBLIC_`.
 
 ## Seminar flow
 

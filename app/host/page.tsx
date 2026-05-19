@@ -6,7 +6,7 @@ import { ArrowLeft, Check, Copy, Crown, Eye, Medal, Plus, Radio, RotateCcw, Time
 import { SetupWarning } from "@/components/SetupWarning";
 import { getErrorMessage } from "@/lib/errors";
 import { calculateAnswerScore, emptyQuestion, makeRoomCode, parseQuestionsCsv, starterQuestions } from "@/lib/quiz";
-import { announceWinner, playCountdownMusic, playSound, startLobbyMusic, stopAllMusic, stopCountdownMusic, stopLobbyMusic } from "@/lib/sound";
+import { announceWinnerWithGemini, playCountdownMusic, playSound, startLobbyMusic, stopAllMusic, stopCountdownMusic, stopLobbyMusic } from "@/lib/sound";
 import { hasSupabaseConfig, requireSupabase } from "@/lib/supabase";
 import { Answer, GameSession, Player, Question, Quiz } from "@/lib/types";
 
@@ -123,7 +123,7 @@ export default function HostPage() {
     stopAllMusic();
     void playSound("end");
     window.setTimeout(() => {
-      void announceWinner(winner.name);
+      void announceWinnerWithGemini(winner.name);
     }, 850);
   }, [leaderboard, session?.id, session?.status]);
 
@@ -684,7 +684,7 @@ export default function HostPage() {
                 <WinnerPodium
                   leaderboard={leaderboard.slice(0, 3)}
                   totalQuestions={questions.length}
-                  onAnnounce={() => void announceWinner(leaderboard[0]?.name)}
+                  onAnnounce={() => void announceWinnerWithGemini(leaderboard[0]?.name)}
                 />
                 <ScoreSummary players={leaderboard} answers={answers} questions={questions} session={session} />
               </div>
