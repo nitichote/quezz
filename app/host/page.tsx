@@ -478,6 +478,37 @@ export default function HostPage() {
     }
   }
 
+  if (session && (session.status === "question" || session.status === "results")) {
+    return (
+      <StageScreen
+        quiz={quiz}
+        session={session}
+        currentQuestion={currentQuestion}
+        questions={questions}
+        displayMode={displayMode}
+        timeLeft={timeLeft}
+        timerProgress={timerProgress}
+        counts={counts}
+        players={players}
+        leaderboard={leaderboard}
+        uniqueAnswered={uniqueAnswered}
+        correctCount={correctCount}
+        busy={busy}
+        onReveal={() => void setStatus("results")}
+        onPrev={() => void askQuestion(Math.max(0, session.current_question - 1))}
+        onNext={() => {
+          if (session.current_question >= questions.length - 1) {
+            void setStatus("ended", session.current_question);
+          } else {
+            void askQuestion(session.current_question + 1);
+          }
+        }}
+        onLobby={() => void setStatus("lobby")}
+        onEnd={() => void setStatus("ended")}
+      />
+    );
+  }
+
   return (
     <main className="thai-bg soft-grid min-h-screen px-4 py-5 text-ink sm:px-6">
       <div className="mx-auto max-w-7xl">
@@ -983,6 +1014,255 @@ export default function HostPage() {
         )}
       </div>
     </main>
+  );
+}
+
+function StageScreen({
+  quiz,
+  session,
+  currentQuestion,
+  questions,
+  displayMode,
+  timeLeft,
+  timerProgress,
+  counts,
+  players,
+  leaderboard,
+  uniqueAnswered,
+  correctCount,
+  busy,
+  onReveal,
+  onPrev,
+  onNext,
+  onLobby,
+  onEnd,
+}: {
+  quiz: Quiz | null;
+  session: GameSession;
+  currentQuestion: Question | null;
+  questions: Question[];
+  displayMode: QuizDisplayMode;
+  timeLeft: number;
+  timerProgress: number;
+  counts: number[];
+  players: Player[];
+  leaderboard: Array<Player & { score: number; answeredCount: number }>;
+  uniqueAnswered: number;
+  correctCount: number;
+  busy: boolean;
+  onReveal: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onLobby: () => void;
+  onEnd: () => void;
+}) {
+  const questionNumber = session.current_question + 1;
+  const totalQuestions = questions.length;
+  const isResults = session.status === "results";
+
+  return (
+    <main className="thai-bg soft-grid min-h-screen overflow-hidden px-4 py-4 text-ink sm:px-6">
+      <div className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-7xl flex-col gap-4">
+        <div className="thai-header flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3 text-white">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-white/65">LIVE QUIZ CHALANGE</p>
+            <p className="mt-1 text-lg font-black sm:text-2xl">
+              {quiz?.title ?? "Live Quiz"} · ข้อ {questionNumber}/{totalQuestions}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="rounded-2xl bg-white/18 px-4 py-2 text-center">
+              <p className="text-xs font-black text-white/65">{isResults ? "โชว์ผล" : "เวลา"}</p>
+              <p className="text-3xl font-black">{isResults ? `${session.results_duration}s` : `${timeLeft}s`}</p>
+            </div>
+            <button
+              onClick={onReveal}
+              disabled={busy || isResults}
+              className="thai-button inline-flex h-11 items-center gap-2 bg-[#facc15] px-4 font-black text-ink"
+            >
+              <Eye size={18} />
+              เฉลย
+            </button>
+            <button
+              onClick={onLobby}
+              disabled={busy}
+              className="thai-button inline-flex h-11 items-center gap-2 border-2 border-white/70 bg-white/15 px-4 font-black text-white"
+            >
+              <RotateCcw size={18} />
+              ห้องรอ
+            </button>
+            <button
+              onClick={onEnd}
+              disabled={busy}
+              className="thai-button inline-flex h-11 items-center gap-2 bg-white px-4 font-black text-coral"
+            >
+              จบเกม
+            </button>
+          </div>
+        </div>
+
+        {!isResults ? (
+          <section className="grid flex-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="thai-panel flex min-h-[520px] flex-col rounded-2xl p-5 sm:p-7">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="rounded-full bg-[#ede9fe] px-4 py-2 text-sm font-black text-[#6d28d9]">
+                  คำถามที่ {questionNumber} จาก {totalQuestions}
+                </p>
+                <div className="flex items-center gap-2 rounded-full bg-ink px-4 py-2 font-black text-white">
+                  <Timer size={20} />
+                  {timeLeft}s
+                </div>
+              </div>
+              <div className="mt-4 h-4 overflow-hidden rounded-full bg-[#ede9fe]">
+                <div className="h-full bg-gradient-to-r from-[#fb7185] via-[#facc15] to-[#34d399] transition-all" style={{ width: `${timerProgress}%` }} />
+              </div>
+
+              <div className="grid flex-1 items-center gap-5 py-5">
+                {currentQuestion?.imageUrl ? (
+                  <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr] xl:items-center">
+                    <img
+                      src={currentQuestion.imageUrl}
+                      alt="รูปประกอบคำถาม"
+                      className="max-h-[44vh] w-full rounded-2xl object-contain shadow-panel"
+                    />
+                    <h1 className="text-4xl font-black leading-tight sm:text-5xl xl:text-6xl">{currentQuestion.prompt}</h1>
+                  </div>
+                ) : (
+                  <h1 className="text-center text-5xl font-black leading-tight sm:text-6xl xl:text-7xl">{currentQuestion?.prompt}</h1>
+                )}
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="rounded-2xl bg-[#4c1d95] p-4 text-white shadow-panel">
+                  <p className="text-4xl font-black">{players.length}</p>
+                  <p className="text-sm font-bold text-white/65">เข้าร่วม</p>
+                </div>
+                <div className="rounded-2xl bg-[#0f766e] p-4 text-white shadow-panel">
+                  <p className="text-4xl font-black">{uniqueAnswered}</p>
+                  <p className="text-sm font-bold text-white/65">ตอบแล้ว</p>
+                </div>
+                <div className="rounded-2xl bg-[#be185d] p-4 text-white shadow-panel">
+                  <p className="text-4xl font-black">{correctCount}</p>
+                  <p className="text-sm font-bold text-white/65">ถูก</p>
+                </div>
+              </div>
+
+              <div className="grid gap-3">
+                {currentQuestion?.choices.map((choice, index) => (
+                  <div key={index} className={`${swatches[index]} flex min-h-24 items-center justify-between gap-4 rounded-2xl px-5 py-4 font-black text-white shadow-panel`}>
+                    <span className="flex items-center gap-4 text-2xl leading-tight">
+                      <span className="text-4xl leading-none">{answerSymbols[index]}</span>
+                      {displayMode === "classic" ? null : choice.text}
+                    </span>
+                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white/24 text-2xl">{counts[index] ?? 0}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  disabled={busy || session.current_question === 0}
+                  onClick={onPrev}
+                  className="thai-button h-12 flex-1 border-2 border-[#4c1d95] bg-white px-4 font-black text-[#4c1d95]"
+                >
+                  ก่อนหน้า
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={onNext}
+                  className="thai-button h-12 flex-1 bg-[#4c1d95] px-4 font-black text-white"
+                >
+                  ถัดไป
+                </button>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section className="thai-panel flex-1 overflow-hidden rounded-2xl">
+            <div className="bg-gradient-to-r from-[#4c1d95] to-[#ec4899] px-6 py-5 text-white">
+              <p className="text-sm font-black uppercase tracking-[0.24em] text-white/70">Score Update</p>
+              <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+                <h1 className="text-4xl font-black sm:text-6xl">ตารางคะแนนล่าสุด</h1>
+                <p className="rounded-full bg-white/18 px-4 py-2 text-lg font-black">จะแสดง {session.results_duration} วินาที</p>
+              </div>
+            </div>
+            <div className="grid gap-5 p-5 lg:grid-cols-[0.8fr_1.2fr]">
+              <div className="rounded-2xl bg-white p-5 shadow-panel">
+                <p className="text-sm font-black text-[#6d28d9]">คำตอบที่ถูกของข้อ {questionNumber}</p>
+                <p className="mt-3 text-3xl font-black leading-tight">
+                  {currentQuestion ? `${answerSymbols[currentQuestion.correctIndex]} ${currentQuestion.choices[currentQuestion.correctIndex]?.text}` : "-"}
+                </p>
+                <div className="mt-5 grid gap-3">
+                  {currentQuestion?.choices.map((choice, index) => {
+                    const isCorrect = currentQuestion.correctIndex === index;
+                    return (
+                      <div key={index} className={`rounded-2xl px-4 py-3 font-black ${isCorrect ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="flex items-center gap-3">
+                            <span>{answerSymbols[index]}</span>
+                            {choice.text}
+                          </span>
+                          <span>{counts[index] ?? 0}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <StageLeaderboard leaderboard={leaderboard} totalQuestions={totalQuestions} />
+            </div>
+          </section>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function StageLeaderboard({
+  leaderboard,
+  totalQuestions,
+}: {
+  leaderboard: Array<Player & { score: number; answeredCount: number }>;
+  totalQuestions: number;
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl bg-white shadow-panel">
+      <div className="max-h-[66vh] overflow-auto">
+        {leaderboard.length ? (
+          leaderboard.map((player, index) => (
+            <div key={player.id} className="flex items-center justify-between gap-4 border-b border-[#ede9fe] px-5 py-4 last:border-b-0">
+              <div className="flex min-w-0 items-center gap-4">
+                <span
+                  className={`grid h-14 w-14 shrink-0 place-items-center rounded-full text-xl font-black ${
+                    index === 0
+                      ? "bg-yellow-300 text-[#713f12]"
+                      : index === 1
+                        ? "bg-slate-200 text-slate-700"
+                        : index === 2
+                          ? "bg-orange-300 text-[#7c2d12]"
+                          : "bg-[#ede9fe] text-[#6d28d9]"
+                  }`}
+                >
+                  {index + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-2xl font-black">{player.name}</p>
+                  <p className="text-sm font-bold text-ink/50">
+                    ตอบแล้ว {player.answeredCount}/{totalQuestions}
+                  </p>
+                </div>
+              </div>
+              <span className="rounded-full bg-[#4c1d95] px-5 py-2 text-2xl font-black text-white">{player.score}</span>
+            </div>
+          ))
+        ) : (
+          <p className="px-5 py-10 text-center text-xl font-bold text-ink/55">ยังไม่มีคะแนน</p>
+        )}
+      </div>
+    </div>
   );
 }
 
