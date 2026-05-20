@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Presentation, UsersRound } from "lucide-react";
+import { BarChart3, Presentation, UsersRound } from "lucide-react";
 
 export default function Home() {
   return (
@@ -38,6 +38,13 @@ export default function Home() {
                 className="inline-flex h-14 items-center justify-center rounded-md border-2 border-ink px-6 font-bold text-ink transition hover:-translate-y-0.5"
               >
                 เข้า Live Quiz ด้วยรหัส
+              </Link>
+              <Link
+                href="/dashboard"
+                className="inline-flex h-14 items-center justify-center gap-2 rounded-md border-2 border-[#4c1d95] bg-white px-6 font-bold text-[#4c1d95] transition hover:-translate-y-0.5"
+              >
+                <BarChart3 size={20} />
+                Dashboard
               </Link>
             </div>
           </div>
