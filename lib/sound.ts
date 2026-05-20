@@ -4,9 +4,11 @@ let audioContext: AudioContext | null = null;
 let lobbyAudio: HTMLAudioElement | null = null;
 let countdownAudio: HTMLAudioElement | null = null;
 let ttsAudio: HTMLAudioElement | null = null;
+let winnerIntroAudio: HTMLAudioElement | null = null;
 let activeCountdownKey = "";
 
 const countdownTracks = ["/music/ingame10second1_2.mp3", "/music/ingame10second2_2.mp3"];
+const winnerIntroTrack = "/music/handon.mp3";
 
 function getAudioContext() {
   audioContext ??= new AudioContext();
@@ -107,9 +109,42 @@ export function stopCountdownMusic() {
   countdownAudio = null;
 }
 
+export function stopWinnerIntroMusic() {
+  if (!winnerIntroAudio) return;
+  winnerIntroAudio.pause();
+  winnerIntroAudio.currentTime = 0;
+  winnerIntroAudio = null;
+}
+
 export function stopAllMusic() {
   stopLobbyMusic();
   stopCountdownMusic();
+  stopWinnerIntroMusic();
+}
+
+export async function playWinnerIntroMusic() {
+  stopAllMusic();
+  winnerIntroAudio = createAudio(winnerIntroTrack, false, 0.95);
+
+  await new Promise<void>((resolve) => {
+    if (!winnerIntroAudio) {
+      resolve();
+      return;
+    }
+
+    const audio = winnerIntroAudio;
+    const finish = () => {
+      audio.onended = null;
+      audio.onerror = null;
+      resolve();
+    };
+
+    audio.onended = finish;
+    audio.onerror = finish;
+    unlockAudio()
+      .then(() => audio.play())
+      .catch(finish);
+  });
 }
 
 export async function announceWinner(name?: string) {

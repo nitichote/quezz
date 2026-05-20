@@ -7,7 +7,7 @@ import { User } from "@supabase/supabase-js";
 import { SetupWarning } from "@/components/SetupWarning";
 import { getErrorMessage } from "@/lib/errors";
 import { calculateAnswerScore, emptyQuestion, makeRoomCode, parseQuestionsCsv, starterQuestions } from "@/lib/quiz";
-import { announceWinnerWithGemini, playCountdownMusic, playSound, startLobbyMusic, stopAllMusic, stopCountdownMusic, stopLobbyMusic } from "@/lib/sound";
+import { announceWinnerWithGemini, playCountdownMusic, playSound, playWinnerIntroMusic, startLobbyMusic, stopAllMusic, stopCountdownMusic, stopLobbyMusic } from "@/lib/sound";
 import { hasSupabaseConfig, requireSupabase } from "@/lib/supabase";
 import { Answer, AppSettings, GameSession, Player, Question, Quiz, QuizDisplayMode, UserProfile } from "@/lib/types";
 
@@ -141,13 +141,8 @@ export default function HostPage() {
 
     winnerAnnouncedRef.current = announceKey;
     stopAllMusic();
-    void playSound("end");
     window.setTimeout(() => {
-      void announceWinnerWithGemini(winner.name).then((result) => {
-        if (result === "browser") {
-          setTtsStatus("Gemini TTS ใช้ไม่ได้ จึงใช้เสียงจาก browser แทน");
-        }
-      });
+      void announceWinnerSequence(winner.name);
     }, 850);
   }, [leaderboard, session?.id, session?.status]);
 
@@ -445,6 +440,16 @@ export default function HostPage() {
     if (session?.status === "lobby") {
       await startLobbyMusic();
     }
+  }
+
+  async function announceWinnerSequence(name?: string) {
+    if (!name) return;
+
+    setTtsStatus("กำลังเล่นเพลงประกาศผล...");
+    await playWinnerIntroMusic();
+    setTtsStatus("กำลังเตรียมเสียง Gemini TTS...");
+    const result = await announceWinnerWithGemini(name);
+    setTtsStatus(result === "gemini" ? "เล่นเพลงและเสียง Gemini TTS แล้ว" : "Gemini TTS ใช้ไม่ได้ จึงใช้เสียงจาก browser แทน");
   }
 
   async function cancelLobbySession() {
@@ -894,11 +899,7 @@ export default function HostPage() {
                   leaderboard={leaderboard.slice(0, 3)}
                   totalQuestions={questions.length}
                   ttsStatus={ttsStatus}
-                  onAnnounce={() =>
-                    void announceWinnerWithGemini(leaderboard[0]?.name).then((result) => {
-                      setTtsStatus(result === "gemini" ? "เล่นเสียง Gemini TTS แล้ว" : "Gemini TTS ใช้ไม่ได้ จึงใช้เสียงจาก browser แทน");
-                    })
-                  }
+                  onAnnounce={() => void announceWinnerSequence(leaderboard[0]?.name)}
                 />
                 <ScoreSummary players={leaderboard} answers={answers} questions={questions} session={session} />
               </div>
@@ -1199,7 +1200,7 @@ function WinnerPodium({
           onClick={onAnnounce}
           className="thai-button mt-4 rounded-xl bg-[#4c1d95] px-5 py-3 font-black text-white"
         >
-          ประกาศผู้ชนะด้วย Gemini TTS
+          เล่นเพลงแล้วประกาศผู้ชนะ
         </button>
         {ttsStatus ? <p className="mt-2 text-sm font-bold text-ink/65">{ttsStatus}</p> : null}
       </div>
