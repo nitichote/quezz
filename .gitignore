@@ -4,5 +4,7 @@ node_modules
 .vercel
 dist
 coverage
+.test-dist
 npm-debug.log*
 /music/
+

@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "test:csv:build": "tsc -p tests/tsconfig.json",
+    "test:csv": "node --test .test-dist/tests/quiz-csv.test.js",
     "start": "next start",
     "lint": "next lint"
   },
@@ -27,3 +29,4 @@
     "typescript": "^5.6.3"
   }
 }
+

@@ -568,7 +568,7 @@ export default function HostPage() {
           activeSession={activeSession}
           onRefresh={() => void loadHostAccess()}
         />
-        {error ? <div className="mb-5 rounded-md border-2 border-coral bg-white p-4 font-bold text-coral">{error}</div> : null}
+        {error ? <div className="mb-5 whitespace-pre-line rounded-md border-2 border-coral bg-white p-4 font-bold text-coral">{error}</div> : null}
 
         {!session ? (
           <section className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
@@ -1592,3 +1592,4 @@ function PodiumSpot({
     </div>
   );
 }
+
